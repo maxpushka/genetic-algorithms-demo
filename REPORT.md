@@ -1759,6 +1759,185 @@ PaGMO2 пропонує потужний та гнучкий інструмен�
 
 Ефективність роботи генетичних алгоритмів та інших методів оптимізації істотно залежить від коректного вибору їх параметрів. PaGMO2 не містить вбудованих спеціалізованих фреймворків для автоматичного налаштування параметрів, таких як SPO (Sequential Parameter Optimization), SMBO (Sequential Model-Based Optimization) чи інших, але пропонує ряд механізмів для контролю та самоадаптації параметрів у процесі оптимізації.
 
+### Інтеграція з методами автоматичного налаштування параметрів
+
+Хоча PaGMO2 не має прямої реалізації SPO та SMBO, архітектура бібліотеки дозволяє легко інтегрувати ці методи:
+
+#### 1. Послідовна оптимізація параметрів (SPO)
+
+SPO - це метод, що послідовно покращує налаштування параметрів, використовуючи сурогатні моделі (зазвичай гаусівські процеси) для прогнозування продуктивності алгоритму з новими параметрами:
+
+```python
+# Приклад реалізації SPO з використанням PyGMO та scikit-learn
+import pygmo as pg
+from sklearn.gaussian_process import GaussianProcessRegressor
+import numpy as np
+
+# Функція оцінки якості конфігурації параметрів
+def evaluate_configuration(config, problem, n_runs=5):
+    cr, m, tournament_size = config
+    results = []
+
+    for seed in range(n_runs):
+        # Створення алгоритму з конфігурацією
+        algo = pg.algorithm(pg.sga(100, cr, 1.0, m, 1.0, tournament_size, seed=seed))
+        pop = pg.population(problem, 20)
+        pop = algo.evolve(pop)
+        results.append(pop.champion_f()[0])
+
+    return np.mean(results)  # Середнє значення фітнеса
+
+# Основний цикл SPO
+def spo_tuning(problem, n_iterations=10, n_initial=5):
+    # Початкова вибірка конфігурацій
+    configs = np.random.rand(n_initial, 3)  # [cr, m, tournament_size]
+    configs[:, 2] = np.random.randint(2, 8, size=n_initial)  # tournament_size в діапазоні [2,7]
+
+    # Оцінка початкових конфігурацій
+    performances = [evaluate_configuration(config, problem) for config in configs]
+
+    # Створення та навчання сурогатної моделі
+    model = GaussianProcessRegressor()
+
+    for i in range(n_iterations):
+        # Навчання моделі на поточних даних
+        model.fit(configs, performances)
+
+        # Генерація та оцінка нових кандидатів
+        candidates = np.random.rand(100, 3)
+        candidates[:, 2] = np.random.randint(2, 8, size=100)
+
+        # Прогнозування та вибір найкращого кандидата
+        predictions, stds = model.predict(candidates, return_std=True)
+        acquisition = predictions - 0.5 * stds  # Acquisition function (EI simplified)
+        best_idx = np.argmin(acquisition)
+
+        # Оцінка обраного кандидата
+        new_config = candidates[best_idx]
+        new_performance = evaluate_configuration(new_config, problem)
+
+        # Оновлення даних
+        configs = np.vstack([configs, [new_config]])
+        performances.append(new_performance)
+
+    # Повернення найкращої конфігурації
+    best_idx = np.argmin(performances)
+    return configs[best_idx]
+```
+
+#### 2. Послідовна оптимізація на основі моделей (SMBO)
+
+SMBO - це узагальнення SPO, що включає різні техніки та алгоритми для побудови й використання сурогатних моделей. Інтеграція SMBO з PaGMO2 можлива через спеціалізовані бібліотеки:
+
+```python
+# Приклад використання SMBO через бібліотеку Optuna
+import optuna
+import pygmo as pg
+
+def objective(trial):
+    # Параметризація SGA через Optuna
+    cr = trial.suggest_float('crossover_rate', 0.5, 1.0)
+    m = trial.suggest_float('mutation_rate', 0.001, 0.1)
+    eta_c = trial.suggest_float('eta_c', 1.0, 30.0)
+    eta_m = trial.suggest_float('eta_m', 1.0, 100.0)
+    tournament_size = trial.suggest_int('tournament_size', 2, 7)
+
+    # Вибір типу кросинговеру
+    crossover_type = trial.suggest_categorical('crossover', ['exponential', 'binomial', 'sbx'])
+
+    # Вибір типу мутації
+    mutation_type = trial.suggest_categorical('mutation', ['polynomial', 'gaussian', 'uniform'])
+
+    # Обчислення середньої продуктивності для зменшення шуму
+    fitness_values = []
+    for seed in range(5):
+        algo = pg.algorithm(pg.sga(
+            100, cr, eta_c, m, eta_m, tournament_size,
+            crossover_type, mutation_type, "tournament", seed
+        ))
+        prob = pg.problem(pg.schwefel(30))
+        pop = pg.population(prob, 50)
+        pop = algo.evolve(pop)
+        fitness_values.append(pop.champion_f()[0])
+
+    return sum(fitness_values) / len(fitness_values)
+
+# Створення дослідження та запуск оптимізації
+study = optuna.create_study(direction='minimize')
+study.optimize(objective, n_trials=100)
+
+# Аналіз результатів та візуалізація
+print("Best parameters:", study.best_params)
+optuna.visualization.plot_param_importances(study)
+optuna.visualization.plot_slice(study)
+```
+
+#### 3. Варіанти впровадження інших підходів
+
+Окрім SPO та SMBO, з PaGMO2 можуть бути інтегровані інші підходи:
+
+- **Решітчастий пошук (Grid Search)**: повний перебір комбінацій параметрів
+- **Випадковий пошук (Random Search)**: ефективна альтернатива перебору для просторів великої розмірності
+- **Байєсівська оптимізація**: імплементація через бібліотеки scikit-optimize або GPyOpt
+- **Генетичні алгоритми для налаштування параметрів**: мета-рівень оптимізації, де генетичний алгоритм PaGMO2 налаштовує параметри іншого алгоритму
+
+Приклад реалізації метагенетичного алгоритму:
+
+```cpp
+// Проблема оптимізації параметрів SGA
+struct sga_tuning_problem {
+    vector_double fitness(const vector_double &x) const {
+        // Параметри SGA для налаштування
+        double cr = x[0];            // Ймовірність кросинговеру [0.5, 1.0]
+        double m = x[1];             // Ймовірність мутації [0.001, 0.1]
+        double eta_c = x[2];         // Індекс розподілу SBX [1.0, 30.0]
+        double tournament_size = x[3]; // Розмір турніру [2, 7]
+
+        // Конфігурація алгоритму SGA з параметрами
+        algorithm algo{sga(
+            100, cr, eta_c, m, 1.0,
+            static_cast<unsigned>(std::round(tournament_size)),
+            "sbx", "polynomial", "tournament"
+        )};
+
+        // Тестова задача
+        problem prob{schwefel(30)};
+
+        // Усереднення результатів з різними seed
+        double avg_fitness = 0.0;
+        const unsigned n_runs = 5;
+
+        for (unsigned seed = 1; seed <= n_runs; ++seed) {
+            // Ініціалізація популяції з фіксованим seed
+            population pop{prob, 50, seed};
+            // Еволюція
+            pop = algo.evolve(pop);
+            // Накопичення результатів
+            avg_fitness += pop.champion_f()[0];
+        }
+
+        return {avg_fitness / n_runs};
+    }
+
+    std::pair<vector_double, vector_double> get_bounds() const {
+        return {{0.5, 0.001, 1.0, 2.0}, {1.0, 0.1, 30.0, 7.0}};
+    }
+};
+
+// Використання метагенетичного алгоритму
+problem meta_prob{sga_tuning_problem{}};
+algorithm meta_algo{de(50, 0.8, 0.9, 2)};  // DE для оптимізації параметрів
+population meta_pop{meta_prob, 20};
+meta_pop = meta_algo.evolve(meta_pop);
+
+// Отримання оптимальних параметрів
+vector_double best_params = meta_pop.champion_x();
+std::cout << "Optimal parameters: cr=" << best_params[0]
+          << ", m=" << best_params[1]
+          << ", eta_c=" << best_params[2]
+          << ", tournament_size=" << std::round(best_params[3]) << std::endl;
+```
+
 ### Самоадаптивні алгоритми
 
 #### 1. Самоадаптивна диференціальна еволюція (SADE)
