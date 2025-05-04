@@ -22,7 +22,8 @@
   ss << f_avg << ",";
   ss << convergence << ",";
   ss << peak_accuracy << ",";
-  ss << distance_accuracy;
+  ss << distance_accuracy << ",";
+  ss << "\"" << termination_reason << "\"";  // Quote termination reason to handle commas
 
   return ss.str();
 }

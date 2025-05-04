@@ -26,8 +26,8 @@ double decode_gray_to_real(const std::string& gray, double min, double max);
 // Discretization nodes encoding/decoding
 // Convert a real value to discretization node encoding (2 decimal places)
 std::string encode_real_to_discretization(double value, double min, double max,
-                                         unsigned dimension);
+                                          unsigned dimension);
 
 // Convert discretization node encoding to real value
-double decode_discretization_to_real(const std::string& encoded, double min, double max,
-                                    unsigned dimension);
+double decode_discretization_to_real(const std::string& encoded, double min,
+                                     double max, unsigned dimension);

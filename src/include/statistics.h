@@ -23,6 +23,7 @@ struct run_stats {
   double peak_accuracy = 0.0;
   double distance_accuracy = 0.0;
   unsigned long long execution_time_ms = 0;
+  std::string termination_reason = "";
 
   // For CSV output
   [[nodiscard]] std::string to_csv() const;

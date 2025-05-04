@@ -10,10 +10,13 @@
 
 #include "include/common.h"
 #include "include/encoding_operator.h"
+#include "include/initialization.h"
+#include "include/mutation.h"
 #include "include/operators.h"
 #include "include/problems.h"
 #include "include/queue.h"
 #include "include/statistics.h"
+#include "include/termination.h"
 #include "pagmo/algorithm.hpp"
 #include "pagmo/algorithms/sga.hpp"
 #include "pagmo/archipelago.hpp"
@@ -123,7 +126,10 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
     adjusted_mutation_prob = config.mutation_prob * 3.2; // 32/10 scaling factor
   }
   
-  // Set up algorithm
+  // Create custom mutations for density-based mutation
+  DensityBasedMutation density_mutation(adjusted_mutation_prob, seed);
+  
+  // Set up PaGMO's algorithm but we'll use our own mutation if needed
   pagmo::algorithm algo{pagmo::sga(
       config.generations_per_evolution,  // Generations per evolution
       config.crossover_prob,             // Crossover probability
@@ -137,24 +143,70 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
       seed              // Random seed
       )};
 
-  // Set up archipelago
-  pagmo::archipelago archi{config.island_count, algo, prob,
-                           config.population_size, seed};
-
-  // Run the evolutions
+  // Initialize the population using binomial distribution
+  pagmo::population pop = initialize_population_binomial(
+      prob, config.population_size, config.encoding_method, seed);
+      
+  // Create archipelago with our custom initialized population
+  pagmo::archipelago archi{config.island_count, algo, pop};
+  
+  // Create termination checker
+  TerminationChecker termination(config);
+  
+  // Run the evolutions with proper termination conditions
   auto start_time = std::chrono::high_resolution_clock::now();
-  for (unsigned i = 0; i < config.total_evolutions; ++i) {
+  
+  bool terminated = false;
+  for (unsigned i = 0; i < config.total_evolutions && !terminated; ++i) {
+    // Evolve one step
     archi.evolve();
     archi.wait_check();
+    
+    // Check termination conditions for each island
+    for (const auto& isl : archi) {
+      if (termination.check_termination(isl.get_population())) {
+        terminated = true;
+        stats.termination_reason = termination.get_termination_reason();
+        break;
+      }
+    }
   }
+  
+  // If using density-based mutation, we need to apply it manually
+  if (config.mutation_type == MutationType::Density) {
+    // For each island in the archipelago
+    for (auto& isl : archi) {
+      // We need to use a temporary population that we can modify
+      pagmo::population temp_pop = isl.get_population();
+      
+      // Apply our custom density-based mutation to each individual
+      for (pagmo::population::size_type i = 0; i < temp_pop.size(); ++i) {
+        auto x = temp_pop.get_x()[i];
+        auto mutated_x = density_mutation.mutate(x, encoding_op);
+        
+        // Replace with mutated individual if fitness improves
+        auto f = temp_pop.get_f()[i][0];
+        auto mutated_f = prob.fitness(mutated_x)[0];
+        
+        if ((config.problem_type == ProblemType::Ackley && mutated_f < f) || 
+            (config.problem_type != ProblemType::Ackley && mutated_f > f)) {
+          temp_pop.set_xf(i, mutated_x, prob.fitness(mutated_x));
+        }
+      }
+      
+      // Set the updated population back to the island
+      isl.set_population(temp_pop);
+    }
+  }
+  
   auto end_time = std::chrono::high_resolution_clock::now();
   stats.execution_time_ms =
       std::chrono::duration_cast<std::chrono::milliseconds>(end_time -
                                                             start_time)
           .count();
-
-  // Collect statistics
-  stats.iterations = config.generations_per_evolution * config.total_evolutions;
+          
+  // Store actual iterations performed
+  stats.iterations = termination.get_iterations();
 
   // Find the best solution across all islands
   pagmo::vector_double best_x;
