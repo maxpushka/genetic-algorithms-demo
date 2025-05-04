@@ -72,6 +72,7 @@ struct run_stats {
   double convergence = 0.0;
   double peak_accuracy = 0.0;
   double distance_accuracy = 0.0;
+  unsigned long long execution_time_ms = 0;
 
   // For CSV output
   [[nodiscard]] std::string to_csv() const {
@@ -80,6 +81,7 @@ struct run_stats {
     ss << (is_successful ? 1 : 0) << ",";
     ss << iterations << ",";
     ss << fitness_evals << ",";
+    ss << execution_time_ms << ",";
     ss << f_max << ",";
 
     // x_max as a string
@@ -111,6 +113,12 @@ struct aggregate_stats {
   unsigned max_evals = 0;
   double avg_evals = 0.0;
   double std_evals = 0.0;
+  
+  // Execution time statistics
+  unsigned long long min_exec_time = 0;
+  unsigned long long max_exec_time = 0;
+  double avg_exec_time = 0.0;
+  double std_exec_time = 0.0;
 
   double min_f_max = 0.0;
   double max_f_max = 0.0;
@@ -148,6 +156,7 @@ struct aggregate_stats {
     return "Success_Rate,"
            "Min_NI,Max_NI,Avg_NI,Sigma_NI,"
            "Min_NFE,Max_NFE,Avg_NFE,Sigma_NFE,"
+           "Min_Time,Max_Time,Avg_Time,Sigma_Time,"
            "Min_Fmax,Max_Fmax,Avg_Fmax,Sigma_Fmax,"
            "Min_Favg,Max_Favg,Avg_Favg,Sigma_Favg,"
            "Min_FC,Max_FC,Avg_FC,Sigma_FC,"
@@ -166,6 +175,8 @@ struct aggregate_stats {
     ss << min_iterations << "," << max_iterations << "," << avg_iterations
        << "," << std_iterations << ",";
     ss << min_evals << "," << max_evals << "," << avg_evals << "," << std_evals
+       << ",";
+    ss << min_exec_time << "," << max_exec_time << "," << avg_exec_time << "," << std_exec_time
        << ",";
     ss << min_f_max << "," << max_f_max << "," << avg_f_max << "," << std_f_max
        << ",";
@@ -361,9 +372,8 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
     archi.wait_check();
   }
   auto end_time = std::chrono::high_resolution_clock::now();
-  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
-                      end_time - start_time)
-                      .count();
+  stats.execution_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            end_time - start_time).count();
 
   // Collect statistics
   stats.iterations = config.generations_per_evolution * config.total_evolutions;
@@ -519,6 +529,21 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
     agg.avg_evals = std::accumulate(evals_vec.begin(), evals_vec.end(), 0.0) /
                     evals_vec.size();
     agg.std_evals = calculate_std_dev(evals_vec, agg.avg_evals);
+    
+    // Calculate min, max, avg for execution time
+    std::vector<double> exec_time_vec;
+    exec_time_vec.reserve(successful_runs.size());
+    agg.min_exec_time = successful_runs[0].execution_time_ms;
+    agg.max_exec_time = successful_runs[0].execution_time_ms;
+    
+    for (const auto &run : successful_runs) {
+      agg.min_exec_time = std::min(agg.min_exec_time, run.execution_time_ms);
+      agg.max_exec_time = std::max(agg.max_exec_time, run.execution_time_ms);
+      exec_time_vec.push_back(static_cast<double>(run.execution_time_ms));
+    }
+    agg.avg_exec_time = std::accumulate(exec_time_vec.begin(), exec_time_vec.end(), 0.0) /
+                       exec_time_vec.size();
+    agg.std_exec_time = calculate_std_dev(exec_time_vec, agg.avg_exec_time);
 
     // Calculate min, max, avg for f_max
     std::vector<double> f_max_vec;
@@ -809,7 +834,7 @@ int main() {
   std::ofstream summary_csv("results/summary_results.csv");
 
   // Write headers
-  detailed_csv << "Config_ID,Run_ID,Is_Successful,Iterations,Fitness_Evals,F_"
+  detailed_csv << "Config_ID,Run_ID,Is_Successful,Iterations,Fitness_Evals,Execution_Time_ms,F_"
                   "max,X_max,F_avg,Convergence,Peak_Accuracy,Distance_Accuracy"
                << std::endl;
   summary_csv << ga_config::csv_header() << "," << aggregate_stats::csv_header()
