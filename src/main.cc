@@ -44,7 +44,8 @@ std::vector<ga_config> create_configurations() {
   // Encoding methods
   constexpr std::array encoding_methods = {
       EncodingMethod::StandardBinary,
-      EncodingMethod::GrayCode
+      EncodingMethod::GrayCode,
+      EncodingMethod::Discretization
   };
 
   // Crossover types (as per TASK.md)

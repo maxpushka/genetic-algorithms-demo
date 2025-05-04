@@ -9,6 +9,7 @@
 #include <thread>
 
 #include "include/common.h"
+#include "include/encoding_operator.h"
 #include "include/operators.h"
 #include "include/problems.h"
 #include "include/queue.h"
@@ -111,12 +112,23 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
       break;
   }
 
+  // Create our encoding operator based on configuration
+  EncodingOperator encoding_op(config.encoding_method, prob);
+  
+  // Adjust mutation probability based on encoding method if necessary
+  double adjusted_mutation_prob = config.mutation_prob;
+  if (config.encoding_method == EncodingMethod::Discretization) {
+    // For discretization encoding, we need a different mutation probability scaling
+    // because the chromosome length is different (10 bits per dimension vs 32)
+    adjusted_mutation_prob = config.mutation_prob * 3.2; // 32/10 scaling factor
+  }
+  
   // Set up algorithm
   pagmo::algorithm algo{pagmo::sga(
       config.generations_per_evolution,  // Generations per evolution
       config.crossover_prob,             // Crossover probability
       1.0,                               // eta_c (distribution index for SBX)
-      config.mutation_prob,              // Mutation probability
+      adjusted_mutation_prob,            // Mutation probability (adjusted for encoding)
       1.0,                               // param_m (mutation parameter)
       selection_param,  // param_s (selection parameter - tournament size)
       pagmo_crossover,  // Use PaGMO-compatible crossover type

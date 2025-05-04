@@ -36,6 +36,7 @@ add_executable(${PROJECT_NAME}
     src/operators.cc
     src/statistics.cc
     src/encoding.cc
+    src/encoding_operator.cc
     src/experiment.cc
 )
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

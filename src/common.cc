@@ -90,6 +90,8 @@ std::string to_string(const EncodingMethod method) {
       return "standard_binary";
     case EncodingMethod::GrayCode:
       return "gray_code";
+    case EncodingMethod::Discretization:
+      return "discretization";
     default:
       return "unknown";
   }
@@ -175,6 +177,7 @@ SelectionMethod selection_from_string(const std::string& str) {
 EncodingMethod encoding_from_string(const std::string& str) {
   if (str == "standard_binary") return EncodingMethod::StandardBinary;
   if (str == "gray_code") return EncodingMethod::GrayCode;
+  if (str == "discretization") return EncodingMethod::Discretization;
   throw std::runtime_error("Unknown encoding method: " + str);
 }
 

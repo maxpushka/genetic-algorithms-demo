@@ -49,7 +49,8 @@ enum class MutationType {
 // Encoding methods
 enum class EncodingMethod {
   StandardBinary,  // Standard binary encoding
-  GrayCode         // Gray code encoding
+  GrayCode,        // Gray code encoding
+  Discretization   // Discretization nodes with 2 decimal places
 };
 
 // Reproduction type
@@ -121,7 +122,7 @@ struct ga_config {
   static std::string csv_header();
 
   // For CSV output
-  std::string to_csv(int config_id) const;
+  [[nodiscard]] std::string to_csv(int config_id) const;
 };
 
 // Helper function to calculate Euclidean distance
