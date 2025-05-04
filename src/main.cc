@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
@@ -8,17 +7,18 @@
 #include <iomanip>
 #include <iostream>
 #include <mutex>
-#include <pagmo/algorithm.hpp>
-#include <pagmo/algorithms/sga.hpp>
-#include <pagmo/archipelago.hpp>
-#include <pagmo/io.hpp>
-#include <pagmo/problem.hpp>
-#include <pagmo/problems/ackley.hpp>
-#include <pagmo/types.hpp>
 #include <queue>
 #include <string>
 #include <thread>
 #include <vector>
+
+#include "pagmo/algorithm.hpp"
+#include "pagmo/algorithms/sga.hpp"
+#include "pagmo/archipelago.hpp"
+#include "pagmo/io.hpp"
+#include "pagmo/problem.hpp"
+#include "pagmo/problems/ackley.hpp"
+#include "pagmo/types.hpp"
 
 // Custom Deb function implementation
 struct deb_func {
