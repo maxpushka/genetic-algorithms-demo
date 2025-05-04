@@ -218,7 +218,7 @@ enum class MutationType {
 };
 
 // Helper functions to convert enums to strings
-inline auto to_string(ProblemType type) -> std::string {
+inline std::string to_string(const ProblemType type) {
   switch (type) {
     case ProblemType::Ackley: return "Ackley";
     case ProblemType::Deb: return "Deb";
@@ -528,7 +528,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
     for (const auto &run : successful_runs) {
       agg.min_evals = std::min(agg.min_evals, run.fitness_evals);
       agg.max_evals = std::max(agg.max_evals, run.fitness_evals);
-      evals_vec.push_back(run.fitness_evals);
+      evals_vec.emplace_back(run.fitness_evals);
     }
     agg.avg_evals = std::accumulate(evals_vec.begin(), evals_vec.end(), 0.0) /
                     evals_vec.size();
@@ -543,7 +543,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
     for (const auto &run : successful_runs) {
       agg.min_exec_time = std::min(agg.min_exec_time, run.execution_time_ms);
       agg.max_exec_time = std::max(agg.max_exec_time, run.execution_time_ms);
-      exec_time_vec.push_back(static_cast<double>(run.execution_time_ms));
+      exec_time_vec.emplace_back(static_cast<double>(run.execution_time_ms));
     }
     agg.avg_exec_time = std::accumulate(exec_time_vec.begin(), exec_time_vec.end(), 0.0) /
                        exec_time_vec.size();
@@ -558,7 +558,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
     for (const auto &run : successful_runs) {
       agg.min_f_max = std::min(agg.min_f_max, run.f_max);
       agg.max_f_max = std::max(agg.max_f_max, run.f_max);
-      f_max_vec.push_back(run.f_max);
+      f_max_vec.emplace_back(run.f_max);
     }
     agg.avg_f_max = std::accumulate(f_max_vec.begin(), f_max_vec.end(), 0.0) /
                     f_max_vec.size();
@@ -573,7 +573,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
     for (const auto &run : successful_runs) {
       agg.min_f_avg = std::min(agg.min_f_avg, run.f_avg);
       agg.max_f_avg = std::max(agg.max_f_avg, run.f_avg);
-      f_avg_vec.push_back(run.f_avg);
+      f_avg_vec.emplace_back(run.f_avg);
     }
     agg.avg_f_avg = std::accumulate(f_avg_vec.begin(), f_avg_vec.end(), 0.0) /
                     f_avg_vec.size();
@@ -588,7 +588,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
     for (const auto &run : successful_runs) {
       agg.min_convergence = std::min(agg.min_convergence, run.convergence);
       agg.max_convergence = std::max(agg.max_convergence, run.convergence);
-      conv_vec.push_back(run.convergence);
+      conv_vec.emplace_back(run.convergence);
     }
     agg.avg_convergence =
         std::accumulate(conv_vec.begin(), conv_vec.end(), 0.0) /
@@ -606,7 +606,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
           std::min(agg.min_peak_accuracy, run.peak_accuracy);
       agg.max_peak_accuracy =
           std::max(agg.max_peak_accuracy, run.peak_accuracy);
-      pa_vec.push_back(run.peak_accuracy);
+      pa_vec.emplace_back(run.peak_accuracy);
     }
     agg.avg_peak_accuracy =
         std::accumulate(pa_vec.begin(), pa_vec.end(), 0.0) / pa_vec.size();
@@ -623,7 +623,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
           std::min(agg.min_dist_accuracy, run.distance_accuracy);
       agg.max_dist_accuracy =
           std::max(agg.max_dist_accuracy, run.distance_accuracy);
-      da_vec.push_back(run.distance_accuracy);
+      da_vec.emplace_back(run.distance_accuracy);
     }
     agg.avg_dist_accuracy =
         std::accumulate(da_vec.begin(), da_vec.end(), 0.0) / da_vec.size();
@@ -641,7 +641,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
     for (const auto &run : failed_runs) {
       agg.min_iterations_f = std::min(agg.min_iterations_f, run.iterations);
       agg.max_iterations_f = std::max(agg.max_iterations_f, run.iterations);
-      iterations_f_vec.push_back(run.iterations);
+      iterations_f_vec.emplace_back(run.iterations);
     }
     agg.avg_iterations_f =
         std::accumulate(iterations_f_vec.begin(), iterations_f_vec.end(), 0.0) /
@@ -667,7 +667,15 @@ class ThreadSafeQueue {
 
   void push(T item) {
     std::lock_guard lock(mutex_);
-    queue_.push(std::move(item));
+    queue_.push(std::move(item)); // Using push with move since we have a complete item
+    cond_.notify_one();
+  }
+  
+  // Variadic template for emplacing items directly
+  template<typename... Args>
+  void emplace(Args&&... args) {
+    std::lock_guard lock(mutex_);
+    queue_.emplace(std::forward<Args>(args)...); // Construct in-place
     cond_.notify_one();
   }
 
@@ -776,7 +784,7 @@ std::vector<run_stats> run_experiment_batch(
     auto stats = run_experiment(config, seed);
 
     // Queue detailed results for asynchronous writing
-    detailed_queue.push(DetailedResultEntry{config_id, run + 1, stats});
+    detailed_queue.emplace(config_id, run + 1, stats); // Using emplace for in-place construction
 
     // Store locally
     local_runs.push_back(stats);
@@ -1111,8 +1119,7 @@ int main() {
         auto agg_stats = calculate_aggregate_stats(runs);
 
         // Queue summary results for asynchronous writing
-        summary_queue.push(
-            SummaryResultEntry{config_id, configs[start + i], agg_stats});
+        summary_queue.emplace(config_id, configs[start + i], agg_stats); // Using emplace for in-place construction
 
         {
           std::lock_guard lock(cout_mutex);
