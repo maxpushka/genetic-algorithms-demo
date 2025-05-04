@@ -31,7 +31,7 @@ void Logger::init(const std::string& log_file, spdlog::level::level_enum level) 
     s_main_logger = std::make_shared<spdlog::logger>("main", spdlog::sinks_init_list{console_sink, file_sink});
     s_file_logger = std::make_shared<spdlog::logger>("file", file_sink);
     s_results_logger = std::make_shared<spdlog::logger>("results", results_sink);
-    
+
     // Set global log level
     set_level(level);
     

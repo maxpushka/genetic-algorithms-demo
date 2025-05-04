@@ -11,7 +11,8 @@
   ss << iterations << ",";
   ss << fitness_evals << ",";
   ss << execution_time_ms << ",";
-  ss << f_max << ",";
+  ss << max_fitness << ",";
+  ss << min_fitness << ",";
 
   // x_max as a string
   for (const auto x : x_max) {
@@ -19,7 +20,7 @@
   }
   ss << ",";
 
-  ss << f_avg << ",";
+  ss << avg_fitness << ",";
   ss << convergence << ",";
   ss << peak_accuracy << ",";
   ss << distance_accuracy << ",";
@@ -35,6 +36,7 @@ std::string aggregate_stats::csv_header() {
          "Min_NFE,Max_NFE,Avg_NFE,Sigma_NFE,"
          "Min_Time,Max_Time,Avg_Time,Sigma_Time,"
          "Min_Fmax,Max_Fmax,Avg_Fmax,Sigma_Fmax,"
+         "Min_Fmin,Max_Fmin,Avg_Fmin,Sigma_Fmin,"
          "Min_Favg,Max_Favg,Avg_Favg,Sigma_Favg,"
          "Min_FC,Max_FC,Avg_FC,Sigma_FC,"
          "Min_PA,Max_PA,Avg_PA,Sigma_PA,"
@@ -56,6 +58,8 @@ std::string aggregate_stats::csv_header() {
   ss << min_exec_time << "," << max_exec_time << "," << avg_exec_time << ","
      << std_exec_time << ",";
   ss << min_f_max << "," << max_f_max << "," << avg_f_max << "," << std_f_max
+     << ",";
+  ss << min_f_min << "," << max_f_min << "," << avg_f_min << "," << std_f_min
      << ",";
   ss << min_f_avg << "," << max_f_avg << "," << avg_f_avg << "," << std_f_avg
      << ",";
@@ -144,28 +148,43 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats>& runs) {
     // Calculate min, max, avg for f_max
     std::vector<double> f_max_vec;
     f_max_vec.reserve(successful_runs.size());
-    agg.min_f_max = successful_runs[0].f_max;
-    agg.max_f_max = successful_runs[0].f_max;
+    agg.min_f_max = successful_runs[0].max_fitness;
+    agg.max_f_max = successful_runs[0].max_fitness;
 
     for (const auto& run : successful_runs) {
-      agg.min_f_max = std::min(agg.min_f_max, run.f_max);
-      agg.max_f_max = std::max(agg.max_f_max, run.f_max);
-      f_max_vec.emplace_back(run.f_max);
+      agg.min_f_max = std::min(agg.min_f_max, run.max_fitness);
+      agg.max_f_max = std::max(agg.max_f_max, run.max_fitness);
+      f_max_vec.emplace_back(run.max_fitness);
     }
     agg.avg_f_max = std::accumulate(f_max_vec.begin(), f_max_vec.end(), 0.0) /
                     f_max_vec.size();
     agg.std_f_max = calculate_std_dev(f_max_vec, agg.avg_f_max);
+    
+    // Calculate min, max, avg for f_min
+    std::vector<double> f_min_vec;
+    f_min_vec.reserve(successful_runs.size());
+    agg.min_f_min = successful_runs[0].min_fitness;
+    agg.max_f_min = successful_runs[0].min_fitness;
+
+    for (const auto& run : successful_runs) {
+      agg.min_f_min = std::min(agg.min_f_min, run.min_fitness);
+      agg.max_f_min = std::max(agg.max_f_min, run.min_fitness);
+      f_min_vec.emplace_back(run.min_fitness);
+    }
+    agg.avg_f_min = std::accumulate(f_min_vec.begin(), f_min_vec.end(), 0.0) /
+                    f_min_vec.size();
+    agg.std_f_min = calculate_std_dev(f_min_vec, agg.avg_f_min);
 
     // Calculate min, max, avg for f_avg
     std::vector<double> f_avg_vec;
     f_avg_vec.reserve(successful_runs.size());
-    agg.min_f_avg = successful_runs[0].f_avg;
-    agg.max_f_avg = successful_runs[0].f_avg;
+    agg.min_f_avg = successful_runs[0].avg_fitness;
+    agg.max_f_avg = successful_runs[0].avg_fitness;
 
     for (const auto& run : successful_runs) {
-      agg.min_f_avg = std::min(agg.min_f_avg, run.f_avg);
-      agg.max_f_avg = std::max(agg.max_f_avg, run.f_avg);
-      f_avg_vec.emplace_back(run.f_avg);
+      agg.min_f_avg = std::min(agg.min_f_avg, run.avg_fitness);
+      agg.max_f_avg = std::max(agg.max_f_avg, run.avg_fitness);
+      f_avg_vec.emplace_back(run.avg_fitness);
     }
     agg.avg_f_avg = std::accumulate(f_avg_vec.begin(), f_avg_vec.end(), 0.0) /
                     f_avg_vec.size();

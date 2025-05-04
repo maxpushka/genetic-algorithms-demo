@@ -210,15 +210,56 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
 
   // Find the best solution across all islands
   pagmo::vector_double best_x;
-  double best_f = std::numeric_limits<double>::lowest();
+  double best_f, worst_f;
   if (config.problem_type == ProblemType::Ackley) {
     best_f = std::numeric_limits<double>::max();
+    worst_f = std::numeric_limits<double>::lowest();
+  } else {
+    best_f = std::numeric_limits<double>::lowest();
+    worst_f = std::numeric_limits<double>::max();
   }
 
   double total_fitness = 0.0;
   int total_individuals = 0;
 
-  // Get results from all islands and find the best
+  // Get champions from all islands using PaGMO's built-in methods
+  const std::vector<pagmo::vector_double> champions_f = archi.get_champions_f();
+  const std::vector<pagmo::vector_double> champions_x = archi.get_champions_x();
+  
+  // Make sure we have champions to evaluate
+  if (!champions_f.empty() && champions_f.size() == champions_x.size()) {
+    LOG_DEBUG("Found {} island champions to evaluate", champions_f.size());
+    
+    // Find the best champion across all islands
+    for (size_t i = 0; i < champions_f.size(); ++i) {
+      if (champions_f[i].empty()) continue;
+      
+      double fitness;
+      if (config.problem_type == ProblemType::Ackley) {
+        fitness = champions_f[i][0];  // Minimizing
+        if (fitness < best_f) {
+          best_f = fitness;
+          best_x = champions_x[i];
+          LOG_DEBUG("New best Ackley solution from island {}: {}", i, best_f);
+        }
+        if (fitness > worst_f) {
+          worst_f = fitness;
+        }
+      } else {
+        fitness = -champions_f[i][0];  // Negating since Deb is set up for minimization
+        if (fitness > best_f) {
+          best_f = fitness;
+          best_x = champions_x[i];
+          LOG_DEBUG("New best Deb solution from island {}: {}", i, best_f);
+        }
+        if (fitness < worst_f) {
+          worst_f = fitness;
+        }
+      }
+    }
+  }
+
+  // Get results from all islands for calculating average fitness and convergence
   for (const auto& isl : archi) {
     const auto& pop = isl.get_population();
 
@@ -228,36 +269,42 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
       if (config.problem_type == ProblemType::Ackley) {
         fitness = pop.get_f()[i][0];  // Minimizing
       } else {
-        fitness =
-            -pop.get_f()[i]
-                        [0];  // Negating since Deb is set up for minimization
+        fitness = -pop.get_f()[i][0];  // Negating since Deb is set up for minimization
       }
       total_fitness += fitness;
       total_individuals++;
-    }
-
-    // Check if this island has the best solution
-    if (config.problem_type == ProblemType::Ackley) {
-      // For Ackley, lower is better (minimization)
-      if (pop.champion_f()[0] < best_f) {
-        best_f = pop.champion_f()[0];
-        best_x = pop.champion_x();
-      }
-    } else {
-      // For Deb, higher is better (maximization despite problem setup)
-      if (-pop.champion_f()[0] > best_f) {
-        best_f = -pop.champion_f()[0];
-        best_x = pop.champion_x();
+      
+      // Track min and max fitness across all individuals
+      if (config.problem_type == ProblemType::Ackley) {
+        if (fitness < best_f) {
+          best_f = fitness;
+          best_x = pop.get_x()[i];
+        }
+        if (fitness > worst_f) {
+          worst_f = fitness;
+        }
+      } else {
+        if (fitness > best_f) {
+          best_f = fitness;
+          best_x = pop.get_x()[i];
+        }
+        if (fitness < worst_f) {
+          worst_f = fitness;
+        }
       }
     }
   }
 
   // Calculate average fitness across all individuals
-  stats.f_avg = total_fitness / total_individuals;
+  stats.avg_fitness = total_fitness / total_individuals;
 
   // Store the best solution
-  stats.f_max = best_f;
+  stats.max_fitness = best_f;
+  stats.min_fitness = worst_f;
   stats.x_max = best_x;
+  
+  LOG_DEBUG("Fitness statistics - Best: {}, Worst: {}, Average: {}", 
+           stats.max_fitness, stats.min_fitness, stats.avg_fitness);
 
   // Calculate convergence (population homogeneity)
   // We measure the average distance from individuals to the best solution
@@ -303,10 +350,25 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
                           (euclidean_distance(best_x, optimal_x) <= SIGMA);
   }
 
-  // Approximate fitness evaluations (population_size * islands * generations)
-  stats.fitness_evals = config.population_size * config.island_count *
-                        config.generations_per_evolution *
-                        config.total_evolutions;
+  // Approximate fitness evaluations based on population size, islands, and generations
+  stats.fitness_evals = static_cast<double>(config.population_size * config.island_count * 
+                        config.generations_per_evolution * config.total_evolutions);
+  
+  // Get the champions' fitness values from all islands
+  const std::vector<pagmo::vector_double> best_fitness_per_island = archi.get_champions_f();
+  
+  // Log the best fitness value from each island for debugging
+  if (!best_fitness_per_island.empty()) {
+    LOG_DEBUG("Best fitness values across {} islands:", best_fitness_per_island.size());
+    for (size_t i = 0; i < best_fitness_per_island.size(); ++i) {
+      if (!best_fitness_per_island[i].empty()) {
+        // For Ackley we're minimizing, for Deb we're maximizing (but stored as negated)
+        double f_val = (config.problem_type == ProblemType::Ackley) ? 
+                       best_fitness_per_island[i][0] : -best_fitness_per_island[i][0];
+        LOG_DEBUG("  Island {}: {}", i, f_val);
+      }
+    }
+  }
 
   return stats;
 }
@@ -386,10 +448,10 @@ void run_config(const int config_id, const ga_config& config,
                  << std::endl;
 
     // Log to the results logger
-    RESULT_LOG("Config {}, Run {}: {}, {} iterations, f_max={}, converged={}",
+    RESULT_LOG("Config {}, Run {}: {}, {} iterations, f_max={}, f_min={}, f_avg={}, converged={}",
                config_id, run + 1, 
                stats.is_successful ? "Success" : "Failure",
-               stats.iterations, stats.f_max, stats.convergence);
+               stats.iterations, stats.max_fitness, stats.min_fitness, stats.avg_fitness, stats.convergence);
 
     runs.push_back(stats);
 
@@ -408,6 +470,16 @@ void run_config(const int config_id, const ga_config& config,
               << agg_stats.to_csv() << std::endl;
               
   // Log summary statistics
-  LOG_INFO("Config {} summary: Success rate: {}%, Avg iterations: {}, Avg fitness: {}", 
-          config_id, agg_stats.success_rate, agg_stats.avg_iterations, agg_stats.avg_f_max);
+  {
+    std::stringstream ss;
+    ss << "Config " << config_id
+       << " summary: Success rate: " << agg_stats.success_rate << "%, "
+       << "Avg iterations: " << agg_stats.avg_iterations << ". "
+       << "Fitness - Best: " << agg_stats.max_f_max
+       << " (avg: " << agg_stats.avg_f_max << "), "
+       << "Worst: " << agg_stats.min_f_min
+       << " (avg: " << agg_stats.avg_f_min << "), "
+       << "Avg: " << agg_stats.avg_f_avg;
+    LOG_INFO("{}", ss.str());
+  }
 }

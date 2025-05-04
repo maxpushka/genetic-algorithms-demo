@@ -15,15 +15,16 @@
 struct run_stats {
   bool is_successful = false;
   unsigned iterations = 0;
-  unsigned fitness_evals = 0;
-  double f_max = 0.0;
+  double fitness_evals = 0;
+  double max_fitness = 0.0;
+  double min_fitness = 0.0;
+  double avg_fitness = 0.0;
   pagmo::vector_double x_max;
-  double f_avg = 0.0;
   double convergence = 0.0;
   double peak_accuracy = 0.0;
   double distance_accuracy = 0.0;
   unsigned long long execution_time_ms = 0;
-  std::string termination_reason = "";
+  std::string termination_reason;
 
   // For CSV output
   [[nodiscard]] std::string to_csv() const;
@@ -39,8 +40,8 @@ struct aggregate_stats {
   double avg_iterations = 0.0;
   double std_iterations = 0.0;
 
-  unsigned min_evals = 0;
-  unsigned max_evals = 0;
+  double min_evals = 0.0;
+  double max_evals = 0.0;
   double avg_evals = 0.0;
   double std_evals = 0.0;
 
@@ -54,6 +55,11 @@ struct aggregate_stats {
   double max_f_max = 0.0;
   double avg_f_max = 0.0;
   double std_f_max = 0.0;
+  
+  double min_f_min = 0.0;
+  double max_f_min = 0.0;
+  double avg_f_min = 0.0;
+  double std_f_min = 0.0;
 
   double min_f_avg = 0.0;
   double max_f_avg = 0.0;

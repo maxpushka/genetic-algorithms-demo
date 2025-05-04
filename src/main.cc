@@ -121,7 +121,7 @@ std::vector<ga_config> create_configurations() {
   };
 
   constexpr unsigned island_count = 16;
-  constexpr unsigned generations_per_evolution = 1000; // TODO: replace 1_000_000
+  constexpr unsigned generations_per_evolution = 720; // TODO: replace 1_000_000
   constexpr unsigned total_evolutions = 10;
 
   // Loop through all combinations of parameters for all problems
@@ -213,7 +213,7 @@ std::vector<ga_config> create_configurations() {
 
 int main() {
   // Initialize logging system
-  Logger::init("ga.log", spdlog::level::info);
+  Logger::init("ga.log", spdlog::level::warn);
   
   LOG_INFO("Genetic Algorithm Optimization - Ackley and Deb Functions");
   LOG_INFO("=========================================================");
@@ -242,7 +242,7 @@ int main() {
   // Store the original number of configurations before potentially reducing for
   // demo mode
   const size_t total_configs = configs.size();
-  LOG_INFO("Total configurations generated: {}", total_configs);
+  LOG_WARN("Total configurations generated: {}", total_configs);
 
   if constexpr (NUM_RUNS < 100) {
     // When running in demo mode
@@ -264,11 +264,11 @@ int main() {
       }
     }
 
-    LOG_INFO("Demo mode: Running {} configurations instead of the full set of {} configurations.", 
+    LOG_WARN("Demo mode: Running {} configurations instead of the full set of {} configurations.",
              demo_configs.size(), total_configs);
     configs = demo_configs;
   } else {
-    LOG_INFO("Running all {} configurations with {} runs each.", 
+    LOG_WARN("Running all {} configurations with {} runs each.",
              total_configs, NUM_RUNS);
   }
 
@@ -282,9 +282,9 @@ int main() {
       deb_configs++;
     }
   }
-  LOG_INFO("Configuration breakdown: {} Ackley configurations, {} Deb configurations", 
+  LOG_WARN("Configuration breakdown: {} Ackley configurations, {} Deb configurations",
            ackley_configs, deb_configs);
-  LOG_INFO("Total expected runs: {}", configs.size() * NUM_RUNS);
+  LOG_WARN("Total expected runs: {}", configs.size() * NUM_RUNS);
 
   // Maximum number of concurrent configurations to run
   constexpr unsigned MAX_CONCURRENT_CONFIGS = 4;
