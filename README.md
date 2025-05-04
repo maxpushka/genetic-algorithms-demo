@@ -65,6 +65,34 @@ For each configuration, multiple runs are performed and statistics are collected
 
 ## Usage
 
+### Local Build
+
+To build and run the project locally:
+
+```bash
+# Setup and build
+task setup
+task build
+
+# Run the application
+./build/bin/ga --num-runs=5 --island-count=8 --max-concurrent=6
+```
+
+### Docker
+
+You can also use Docker to build and run the application:
+
+```bash
+# Build and run with docker-compose
+docker-compose up --build
+
+# Or with Docker directly
+docker build -t genetic-algorithms .
+docker run -v $(pwd)/results:/app/results genetic-algorithms --num-runs=5
+```
+
+### Output
+
 The program generates two CSV files:
 1. `results/detailed_results.csv` - Contains detailed information for each run
 2. `results/summary_results.csv` - Contains aggregate statistics for each configuration

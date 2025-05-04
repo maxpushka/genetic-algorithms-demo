@@ -102,10 +102,20 @@ struct DetailedResultEntry {
   int config_id;
   unsigned run_id;
   run_stats stats;
+
+  DetailedResultEntry() {}
+  
+  DetailedResultEntry(int config_id, unsigned run_id, const run_stats& stats)
+      : config_id(config_id), run_id(run_id), stats(stats) {}
 };
 
 struct SummaryResultEntry {
   int config_id;
   ga_config config;
   aggregate_stats stats;
+  
+  SummaryResultEntry() {}
+
+  SummaryResultEntry(int config_id, const ga_config& config, const aggregate_stats& stats)
+      : config_id(config_id), config(config), stats(stats) {}
 };

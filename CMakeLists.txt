@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.30 FATAL_ERROR) # v3.30 is required for C++23 `import std;` support
+cmake_minimum_required(VERSION 3.15 FATAL_ERROR)
 project(ga LANGUAGES CXX)
 
 # ==================================================
@@ -10,7 +10,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wdangling-gsl -Wreturn-stack-address -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk")
-set(CMAKE_CXX_SCAN_FOR_MODULES 1)
 
 # ==================================================
 # = Dependencies Setup
@@ -18,8 +17,8 @@ set(CMAKE_CXX_SCAN_FOR_MODULES 1)
 include(FetchContent)
 
 # ------------------- spdlog -------------------
- FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.15.2.tar.gz)
- FetchContent_MakeAvailable(spdlog)
+FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.15.2.tar.gz)
+FetchContent_MakeAvailable(spdlog)
 
 # ------------------- PaGMO -------------------
 find_package(Pagmo REQUIRED)
