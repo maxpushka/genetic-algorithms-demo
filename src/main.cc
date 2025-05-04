@@ -573,8 +573,8 @@ int main() {
     std::vector<ga_config> configs;
     int config_id = 0;
     
-    // For demonstration purposes, we'll run a limited set of configurations
-    const unsigned NUM_RUNS = 10; // We'd normally use 100 for full tests
+    // Number of runs as specified in the task
+    const unsigned NUM_RUNS = 100; // As required in TASK.md, line 158
     
     // ==============================
     // ACKLEY FUNCTION CONFIGURATIONS
