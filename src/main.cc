@@ -26,35 +26,11 @@
 #include "pagmo/problems/ackley.hpp"
 #include "pagmo/types.hpp"
 
-int main() {
-  std::cout << "Genetic Algorithm Optimization - Ackley and Deb Functions"
-            << std::endl;
-  std::cout << "========================================================="
-            << std::endl;
-
-  // Create output directory
-  std::system("mkdir -p results");
-
-  // Setup CSV files for output
-  std::ofstream detailed_csv("results/detailed_results.csv");
-  std::ofstream summary_csv("results/summary_results.csv");
-
-  // Write headers
-  detailed_csv << "Config_ID,Run_ID,Is_Successful,Iterations,Fitness_Evals,"
-                  "Execution_Time_ms,F_"
-                  "max,X_max,F_avg,Convergence,Peak_Accuracy,Distance_Accuracy"
-               << std::endl;
-  summary_csv << ga_config::csv_header() << "," << aggregate_stats::csv_header()
-              << std::endl;
-
-  // Configuration options to test
+// Function to generate all configurations for testing
+std::vector<ga_config> create_configurations() {
   std::vector<ga_config> configs;
   int config_id = 0;
-
-  // Number of runs as specified in the task
-  constexpr unsigned NUM_RUNS =
-      5;  // Reduced for testing, should be 100 as per TASK.md, line 158
-
+  
   // Following the task requirements to analyze in order:
   // 1. N=100, n=1, 2, 3, 5
   // 2. Then repeat for N=200, 300, 400
@@ -66,13 +42,15 @@ int main() {
   constexpr std::array dimensions = {1, 2, 3, 5};
 
   // Encoding methods
-  constexpr std::array encoding_methods = {EncodingMethod::StandardBinary,
-                                           EncodingMethod::GrayCode};
+  constexpr std::array encoding_methods = {
+      EncodingMethod::StandardBinary,
+      EncodingMethod::GrayCode
+  };
 
   // Crossover types (as per TASK.md)
   constexpr std::array crossover_types = {
-      CrossoverType::Single,  // Single-point crossover
-      CrossoverType::Uniform  // Standard uniform crossover
+      CrossoverType::Single,   // Single-point crossover
+      CrossoverType::Uniform   // Standard uniform crossover
   };
 
   // Crossover probabilities (as per TASK.md)
@@ -88,8 +66,7 @@ int main() {
 
   // Mutation types
   constexpr std::array mutation_types = {
-      MutationType::Polynomial,  // Using polynomial mutation for density-based
-                                 // mutation
+      MutationType::Polynomial,  // Using polynomial mutation for density-based mutation
       MutationType::Density      // Explicit density-based mutation
   };
 
@@ -117,24 +94,29 @@ int main() {
   };
 
   // All selection methods (same for each population size as per TASK.md)
-  constexpr std::array selection_methods = {SelectionMethod::SUS,
-                                            SelectionMethod::RWS,
-                                            SelectionMethod::TournWITH_t2,
-                                            SelectionMethod::TournWITHOUT_t2,
-                                            SelectionMethod::TournWITHPART_t2,
-                                            SelectionMethod::ExpRankRWS_c0_9801,
-                                            SelectionMethod::ExpRankSUS_c0_9801,
-                                            SelectionMethod::LinRankRWS_b2,
-                                            SelectionMethod::LinRankSUS_b2,
-                                            SelectionMethod::TournWITH_t4,
-                                            SelectionMethod::TournWITHOUT_t4,
-                                            SelectionMethod::ExpRankRWS_c0_9606,
-                                            SelectionMethod::ExpRankSUS_c0_9606,
-                                            SelectionMethod::LinRankRWS_b1_6,
-                                            SelectionMethod::LinRankSUS_b1_6};
+  constexpr std::array selection_methods = {
+      SelectionMethod::SUS,
+      SelectionMethod::RWS,
+      SelectionMethod::TournWITH_t2,
+      SelectionMethod::TournWITHOUT_t2,
+      SelectionMethod::TournWITHPART_t2,
+      SelectionMethod::ExpRankRWS_c0_9801,
+      SelectionMethod::ExpRankSUS_c0_9801,
+      SelectionMethod::LinRankRWS_b2,
+      SelectionMethod::LinRankSUS_b2,
+      SelectionMethod::TournWITH_t4,
+      SelectionMethod::TournWITHOUT_t4,
+      SelectionMethod::ExpRankRWS_c0_9606,
+      SelectionMethod::ExpRankSUS_c0_9606,
+      SelectionMethod::LinRankRWS_b1_6,
+      SelectionMethod::LinRankSUS_b1_6
+  };
 
   // Define problem types to test
-  constexpr std::array problem_types = {ProblemType::Ackley, ProblemType::Deb};
+  constexpr std::array problem_types = {
+      ProblemType::Ackley,
+      ProblemType::Deb
+  };
 
   // Loop through all combinations of parameters for all problems
   for (const auto problem_type : problem_types) {
@@ -142,7 +124,7 @@ int main() {
       for (auto dim : dimensions) {
         // Get the appropriate mutation probabilities for this dimension
         const auto& mutation_probs = mutation_probs_by_dim[dim];
-
+        
         for (const auto encoding_method : encoding_methods) {
           for (const auto& crossover_type : crossover_types) {
             for (double crossover_prob : crossover_probs) {
@@ -157,60 +139,53 @@ int main() {
                         config.problem_type = problem_type;
                         config.dimension = dim;
                         config.population_size = pop_size;
-                        config.island_count =
-                            16;  // Using 16 islands for parallelization
+                        config.island_count = 16;  // Using 16 islands for parallelization
                         config.generations_per_evolution = 50;
                         config.total_evolutions = 10;
-
+                        
                         config.encoding_method = encoding_method;
                         config.crossover_type = crossover_type;
                         config.crossover_prob = crossover_prob;
                         config.mutation_type = mutation_type;
                         config.mutation_prob = mutation_prob;
                         config.selection_method = selection_method;
-
+                        
                         // Set to generational reproduction type
                         config.reproduction_type = reproduction_type;
-                        config.generation_gap =
-                            0.0;  // Not used for generational
-
+                        config.generation_gap = 0.0;  // Not used for generational
+                        
                         configs.push_back(config);
                         config_id++;
                       }
-                    } else if (reproduction_type ==
-                               ReproductionType::SteadyState) {
+                    } else if (reproduction_type == ReproductionType::SteadyState) {
                       // For steady-state reproduction type
                       for (double gap : generation_gaps) {
-                        for (const auto parent_selection :
-                             parent_selection_methods) {
-                          for (const auto replacement_method :
-                               replacement_methods) {
+                        for (const auto parent_selection : parent_selection_methods) {
+                          for (const auto replacement_method : replacement_methods) {
                             // Create config for steady-state reproduction type
                             ga_config config;
                             config.problem_type = problem_type;
                             config.dimension = dim;
                             config.population_size = pop_size;
-                            config.island_count =
-                                16;  // Using 16 islands for parallelization
+                            config.island_count = 16;  // Using 16 islands for parallelization
                             config.generations_per_evolution = 50;
                             config.total_evolutions = 10;
-
+                            
                             // Default selection method for steady-state
-                            config.selection_method =
-                                SelectionMethod::Tournament;
-
+                            config.selection_method = SelectionMethod::Tournament;
+                            
                             config.encoding_method = encoding_method;
                             config.crossover_type = crossover_type;
                             config.crossover_prob = crossover_prob;
                             config.mutation_type = mutation_type;
                             config.mutation_prob = mutation_prob;
-
+                            
                             // Set steady-state specific parameters
                             config.reproduction_type = reproduction_type;
                             config.generation_gap = gap;
                             config.parent_selection_method = parent_selection;
                             config.replacement_method = replacement_method;
-
+                            
                             configs.push_back(config);
                             config_id++;
                           }
@@ -226,6 +201,36 @@ int main() {
       }
     }
   }
+  
+  return configs;
+}
+
+int main() {
+  std::cout << "Genetic Algorithm Optimization - Ackley and Deb Functions"
+            << std::endl;
+  std::cout << "========================================================="
+            << std::endl;
+
+  // Create output directory
+  std::system("mkdir -p results");
+
+  // Setup CSV files for output
+  std::ofstream detailed_csv("results/detailed_results.csv");
+  std::ofstream summary_csv("results/summary_results.csv");
+
+  // Write headers
+  detailed_csv << "Config_ID,Run_ID,Is_Successful,Iterations,Fitness_Evals,"
+                  "Execution_Time_ms,F_"
+                  "max,X_max,F_avg,Convergence,Peak_Accuracy,Distance_Accuracy"
+               << std::endl;
+  summary_csv << ga_config::csv_header() << "," << aggregate_stats::csv_header()
+              << std::endl;
+
+  // Number of runs as specified in the task
+  constexpr unsigned NUM_RUNS = 100;  // as per TASK.md, line 158
+
+  // Generate all configurations
+  std::vector<ga_config> configs = create_configurations();
 
   // Store the original number of configurations before potentially reducing for
   // demo mode
