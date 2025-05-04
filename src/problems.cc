@@ -1,4 +1,5 @@
 #include "include/problems.h"
+
 #include <cmath>
 
 // Custom Deb function implementation
@@ -36,6 +37,6 @@ deb_func::get_bounds() const {
   return -m_dim;  // Each dimension contributes -1.0 at optimum
 }
 
-[[nodiscard]] std::string deb_func::get_name() const { 
-  return "Deb's function"; 
+[[nodiscard]] std::string deb_func::get_name() const {
+  return "Deb's function";
 }

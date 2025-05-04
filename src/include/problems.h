@@ -1,8 +1,9 @@
 #pragma once
 
 #include <cmath>
-#include <utility>
 #include <string>
+#include <utility>
+
 #include "pagmo/problem.hpp"
 #include "pagmo/types.hpp"
 
@@ -10,8 +11,10 @@
 struct deb_func {
   explicit deb_func(const unsigned dim = 1);
 
-  [[nodiscard]] pagmo::vector_double fitness(const pagmo::vector_double &x) const;
-  [[nodiscard]] std::pair<pagmo::vector_double, pagmo::vector_double> get_bounds() const;
+  [[nodiscard]] pagmo::vector_double fitness(
+      const pagmo::vector_double &x) const;
+  [[nodiscard]] std::pair<pagmo::vector_double, pagmo::vector_double>
+  get_bounds() const;
 
   // Additional methods to help with analysis
   [[nodiscard]] pagmo::vector_double get_optimal_point() const;

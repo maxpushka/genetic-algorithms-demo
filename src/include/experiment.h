@@ -1,11 +1,12 @@
 #pragma once
 
-#include <vector>
-#include <mutex>
 #include <future>
+#include <mutex>
+#include <vector>
+
 #include "common.h"
-#include "statistics.h"
 #include "queue.h"
+#include "statistics.h"
 
 // Function to run a single GA experiment with given parameters
 run_stats run_experiment(const ga_config& config, unsigned seed);

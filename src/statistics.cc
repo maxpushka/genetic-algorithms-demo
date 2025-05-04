@@ -1,4 +1,5 @@
 #include "include/statistics.h"
+
 #include <algorithm>
 #include <numeric>
 
@@ -47,12 +48,12 @@ std::string aggregate_stats::csv_header() {
 
   ss << success_rate << ",";
 
-  ss << min_iterations << "," << max_iterations << "," << avg_iterations
-     << "," << std_iterations << ",";
+  ss << min_iterations << "," << max_iterations << "," << avg_iterations << ","
+     << std_iterations << ",";
   ss << min_evals << "," << max_evals << "," << avg_evals << "," << std_evals
      << ",";
-  ss << min_exec_time << "," << max_exec_time << "," << avg_exec_time << "," << std_exec_time
-     << ",";
+  ss << min_exec_time << "," << max_exec_time << "," << avg_exec_time << ","
+     << std_exec_time << ",";
   ss << min_f_max << "," << max_f_max << "," << avg_f_max << "," << std_f_max
      << ",";
   ss << min_f_avg << "," << max_f_avg << "," << avg_f_avg << "," << std_f_avg
@@ -122,20 +123,21 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats>& runs) {
     agg.avg_evals = std::accumulate(evals_vec.begin(), evals_vec.end(), 0.0) /
                     evals_vec.size();
     agg.std_evals = calculate_std_dev(evals_vec, agg.avg_evals);
-    
+
     // Calculate min, max, avg for execution time
     std::vector<double> exec_time_vec;
     exec_time_vec.reserve(successful_runs.size());
     agg.min_exec_time = successful_runs[0].execution_time_ms;
     agg.max_exec_time = successful_runs[0].execution_time_ms;
-    
+
     for (const auto& run : successful_runs) {
       agg.min_exec_time = std::min(agg.min_exec_time, run.execution_time_ms);
       agg.max_exec_time = std::max(agg.max_exec_time, run.execution_time_ms);
       exec_time_vec.emplace_back(static_cast<double>(run.execution_time_ms));
     }
-    agg.avg_exec_time = std::accumulate(exec_time_vec.begin(), exec_time_vec.end(), 0.0) /
-                       exec_time_vec.size();
+    agg.avg_exec_time =
+        std::accumulate(exec_time_vec.begin(), exec_time_vec.end(), 0.0) /
+        exec_time_vec.size();
     agg.std_exec_time = calculate_std_dev(exec_time_vec, agg.avg_exec_time);
 
     // Calculate min, max, avg for f_max

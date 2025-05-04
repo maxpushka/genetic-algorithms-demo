@@ -1,15 +1,15 @@
 #pragma once
 
+#include <algorithm>
+#include <chrono>
 #include <iomanip>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <chrono>
-#include <algorithm>
-#include <numeric>
 
-#include "pagmo/types.hpp"
 #include "common.h"
+#include "pagmo/types.hpp"
 
 // Utility for tracking statistics
 struct run_stats {
@@ -42,7 +42,7 @@ struct aggregate_stats {
   unsigned max_evals = 0;
   double avg_evals = 0.0;
   double std_evals = 0.0;
-  
+
   // Execution time statistics
   unsigned long long min_exec_time = 0;
   unsigned long long max_exec_time = 0;

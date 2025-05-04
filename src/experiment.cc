@@ -1,18 +1,18 @@
 #include "include/experiment.h"
-#include "include/common.h"
-#include "include/problems.h"
-#include "include/statistics.h"
-#include "include/queue.h"
-#include "include/operators.h"
 
-#include <iostream>
 #include <algorithm>
-#include <numeric>
 #include <chrono>
 #include <fstream>
-#include <thread>
 #include <future>
+#include <iostream>
+#include <numeric>
+#include <thread>
 
+#include "include/common.h"
+#include "include/operators.h"
+#include "include/problems.h"
+#include "include/queue.h"
+#include "include/statistics.h"
 #include "pagmo/algorithm.hpp"
 #include "pagmo/algorithms/sga.hpp"
 #include "pagmo/archipelago.hpp"
@@ -39,11 +39,13 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
       throw std::runtime_error("Unknown problem type");
   }
 
-  // Map our selection methods to PaGMO's supported types (roulette, tournament, truncated)
+  // Map our selection methods to PaGMO's supported types (roulette, tournament,
+  // truncated)
   std::string pagmo_selection;
-  int selection_param = 2; // Default tournament size
-  
-  // PaGMO only supports "roulette", "tournament", and "truncated" selection types
+  int selection_param = 2;  // Default tournament size
+
+  // PaGMO only supports "roulette", "tournament", and "truncated" selection
+  // types
   switch (config.selection_method) {
     case SelectionMethod::RWS:
     case SelectionMethod::ExpRankRWS_c0_9801:
@@ -52,7 +54,7 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
     case SelectionMethod::LinRankRWS_b1_6:
       pagmo_selection = "roulette";
       break;
-      
+
     case SelectionMethod::Tournament:
     case SelectionMethod::TournWITH_t2:
     case SelectionMethod::TournWITHOUT_t2:
@@ -60,24 +62,24 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
       pagmo_selection = "tournament";
       selection_param = 2;
       break;
-      
+
     case SelectionMethod::TournWITH_t4:
     case SelectionMethod::TournWITHOUT_t4:
       pagmo_selection = "tournament";
       selection_param = 4;
       break;
-      
+
     // All other selection methods, including SUS-based ones
     default:
-      pagmo_selection = "tournament"; // Default to tournament
+      pagmo_selection = "tournament";  // Default to tournament
       selection_param = 2;
       break;
   }
-  
+
   // Map our crossover and mutation types to PaGMO's supported types
   std::string pagmo_crossover;
   std::string pagmo_mutation;
-  
+
   // PaGMO supports "single", "sbx", "uniform" for crossover
   switch (config.crossover_type) {
     case CrossoverType::Single:
@@ -90,10 +92,10 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
       pagmo_crossover = "uniform";
       break;
     default:
-      pagmo_crossover = "single"; // Default
+      pagmo_crossover = "single";  // Default
       break;
   }
-  
+
   // PaGMO supports "polynomial", "gaussian" for mutation
   // Map our "Density" to "polynomial" for compatibility
   switch (config.mutation_type) {
@@ -101,13 +103,14 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
       pagmo_mutation = "polynomial";
       break;
     case MutationType::Density:
-      pagmo_mutation = "polynomial"; // Use polynomial as a substitute for density-based
+      pagmo_mutation =
+          "polynomial";  // Use polynomial as a substitute for density-based
       break;
     default:
-      pagmo_mutation = "polynomial"; // Default
+      pagmo_mutation = "polynomial";  // Default
       break;
   }
-  
+
   // Set up algorithm
   pagmo::algorithm algo{pagmo::sga(
       config.generations_per_evolution,  // Generations per evolution
@@ -115,11 +118,11 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
       1.0,                               // eta_c (distribution index for SBX)
       config.mutation_prob,              // Mutation probability
       1.0,                               // param_m (mutation parameter)
-      selection_param,                   // param_s (selection parameter - tournament size)
-      pagmo_crossover,                   // Use PaGMO-compatible crossover type
-      pagmo_mutation,                    // Use PaGMO-compatible mutation type
-      pagmo_selection,                   // Use PaGMO-compatible selection type
-      seed                               // Random seed
+      selection_param,  // param_s (selection parameter - tournament size)
+      pagmo_crossover,  // Use PaGMO-compatible crossover type
+      pagmo_mutation,   // Use PaGMO-compatible mutation type
+      pagmo_selection,  // Use PaGMO-compatible selection type
+      seed              // Random seed
       )};
 
   // Set up archipelago
@@ -133,8 +136,10 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
     archi.wait_check();
   }
   auto end_time = std::chrono::high_resolution_clock::now();
-  stats.execution_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                          end_time - start_time).count();
+  stats.execution_time_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(end_time -
+                                                            start_time)
+          .count();
 
   // Collect statistics
   stats.iterations = config.generations_per_evolution * config.total_evolutions;
@@ -150,8 +155,8 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
   int total_individuals = 0;
 
   // Get results from all islands and find the best
-  for (const auto &isl : archi) {
-    const auto &pop = isl.get_population();
+  for (const auto& isl : archi) {
+    const auto& pop = isl.get_population();
 
     // Calculate average fitness for this island
     for (pagmo::population::size_type i = 0; i < pop.size(); ++i) {
@@ -193,8 +198,8 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
   // Calculate convergence (population homogeneity)
   // We measure the average distance from individuals to the best solution
   double total_distance = 0.0;
-  for (const auto &isl : archi) {
-    const auto &pop = isl.get_population();
+  for (const auto& isl : archi) {
+    const auto& pop = isl.get_population();
     for (pagmo::population::size_type i = 0; i < pop.size(); ++i) {
       total_distance += euclidean_distance(pop.get_x()[i], best_x);
     }
@@ -249,8 +254,8 @@ std::vector<run_stats> run_experiment_batch(
     std::mutex& cout_mutex, const unsigned num_runs) {
   {
     std::lock_guard lock(cout_mutex);
-    std::cout << "Starting config " << config_id << ": " << to_string(config.problem_type)
-              << ", dim=" << config.dimension
+    std::cout << "Starting config " << config_id << ": "
+              << to_string(config.problem_type) << ", dim=" << config.dimension
               << ", pop=" << config.population_size
               << ", islands=" << config.island_count << std::endl;
   }
@@ -271,7 +276,8 @@ std::vector<run_stats> run_experiment_batch(
     auto stats = run_experiment(config, seed);
 
     // Queue detailed results for asynchronous writing
-    detailed_queue.emplace(config_id, run + 1, stats); // Using emplace for in-place construction
+    detailed_queue.emplace(config_id, run + 1,
+                           stats);  // Using emplace for in-place construction
 
     // Store locally
     local_runs.push_back(stats);
@@ -294,8 +300,8 @@ std::vector<run_stats> run_experiment_batch(
 void run_config(const int config_id, const ga_config& config,
                 std::ofstream& detailed_csv, std::ofstream& summary_csv,
                 const unsigned num_runs) {
-  std::cout << "Running config " << config_id << ": " << to_string(config.problem_type)
-            << ", dim=" << config.dimension
+  std::cout << "Running config " << config_id << ": "
+            << to_string(config.problem_type) << ", dim=" << config.dimension
             << ", pop=" << config.population_size
             << ", islands=" << config.island_count << std::endl;
 

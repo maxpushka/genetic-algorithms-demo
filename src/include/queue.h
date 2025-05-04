@@ -1,9 +1,9 @@
 #pragma once
 
-#include <queue>
-#include <mutex>
 #include <condition_variable>
 #include <memory>
+#include <mutex>
+#include <queue>
 #include <thread>
 
 // Thread-safe queue for asynchronous I/O operations
@@ -20,15 +20,16 @@ class ThreadSafeQueue {
 
   void push(T item) {
     std::lock_guard lock(mutex_);
-    queue_.push(std::move(item)); // Using push with move since we have a complete item
+    queue_.push(
+        std::move(item));  // Using push with move since we have a complete item
     cond_.notify_one();
   }
-  
+
   // Variadic template for emplacing items directly
-  template<typename... Args>
-  void emplace(Args&&... args) {
+  template <typename... Args>
+  void emplace(Args &&...args) {
     std::lock_guard lock(mutex_);
-    queue_.emplace(std::forward<Args>(args)...); // Construct in-place
+    queue_.emplace(std::forward<Args>(args)...);  // Construct in-place
     cond_.notify_one();
   }
 
