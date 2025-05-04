@@ -203,18 +203,38 @@ enum class ProblemType {
 };
 
 enum class SelectionMethod {
-  Tournament
-  // Add other methods as needed
+  // Standard selection methods
+  SUS,                   // Stochastic Universal Sampling
+  RWS,                   // Roulette Wheel Selection
+  Tournament,            // Tournament selection (default)
+  
+  // Tournament variations
+  TournWITH_t2,          // Tournament with replacement, t=2
+  TournWITH_t4,          // Tournament with replacement, t=4
+  TournWITHOUT_t2,       // Tournament without replacement, t=2
+  TournWITHOUT_t4,       // Tournament without replacement, t=4
+  TournWITHPART_t2,      // Tournament with participation, t=2
+  
+  // Ranking selection methods
+  ExpRankRWS_c0_9801,    // Exponential Ranking RWS, c=0.9801
+  ExpRankRWS_c0_9606,    // Exponential Ranking RWS, c=0.9606
+  ExpRankSUS_c0_9801,    // Exponential Ranking SUS, c=0.9801
+  ExpRankSUS_c0_9606,    // Exponential Ranking SUS, c=0.9606
+  LinRankRWS_b2,         // Linear Ranking RWS, beta=2
+  LinRankRWS_b1_6,       // Linear Ranking RWS, beta=1.6
+  LinRankSUS_b2,         // Linear Ranking SUS, beta=2
+  LinRankSUS_b1_6        // Linear Ranking SUS, beta=1.6
 };
 
 enum class CrossoverType {
-  Single,  // single-point crossover
-  SBX      // simulated binary crossover
+  Single,       // single-point crossover
+  SBX,          // simulated binary crossover
+  Uniform       // standard uniform crossover
 };
 
 enum class MutationType {
-  Polynomial
-  // Add other types as needed
+  Polynomial,   // Polynomial mutation
+  Density       // Density-based mutation (as required in TASK.md)
 };
 
 // Helper functions to convert enums to strings
@@ -228,7 +248,28 @@ inline std::string to_string(const ProblemType type) {
 
 inline std::string to_string(const SelectionMethod method) {
   switch (method) {
+    // Standard selection methods
+    case SelectionMethod::SUS: return "sus";
+    case SelectionMethod::RWS: return "rws";
     case SelectionMethod::Tournament: return "tournament";
+    
+    // Tournament variations
+    case SelectionMethod::TournWITH_t2: return "tournament_with_t2";
+    case SelectionMethod::TournWITH_t4: return "tournament_with_t4";
+    case SelectionMethod::TournWITHOUT_t2: return "tournament_without_t2";
+    case SelectionMethod::TournWITHOUT_t4: return "tournament_without_t4";
+    case SelectionMethod::TournWITHPART_t2: return "tournament_part_t2";
+    
+    // Ranking selection methods
+    case SelectionMethod::ExpRankRWS_c0_9801: return "exp_rank_rws_c0_9801";
+    case SelectionMethod::ExpRankRWS_c0_9606: return "exp_rank_rws_c0_9606";
+    case SelectionMethod::ExpRankSUS_c0_9801: return "exp_rank_sus_c0_9801";
+    case SelectionMethod::ExpRankSUS_c0_9606: return "exp_rank_sus_c0_9606";
+    case SelectionMethod::LinRankRWS_b2: return "lin_rank_rws_b2";
+    case SelectionMethod::LinRankRWS_b1_6: return "lin_rank_rws_b1_6";
+    case SelectionMethod::LinRankSUS_b2: return "lin_rank_sus_b2";
+    case SelectionMethod::LinRankSUS_b1_6: return "lin_rank_sus_b1_6";
+    
     default: return "unknown";
   }
 }
@@ -237,6 +278,7 @@ inline std::string to_string(const CrossoverType type) {
   switch (type) {
     case CrossoverType::Single: return "single";
     case CrossoverType::SBX: return "sbx";
+    case CrossoverType::Uniform: return "uniform";
     default: return "unknown";
   }
 }
@@ -244,6 +286,7 @@ inline std::string to_string(const CrossoverType type) {
 inline std::string to_string(const MutationType type) {
   switch (type) {
     case MutationType::Polynomial: return "polynomial";
+    case MutationType::Density: return "density";
     default: return "unknown";
   }
 }
@@ -252,7 +295,127 @@ inline std::string to_string(const MutationType type) {
 inline CrossoverType crossover_from_string(const std::string& str) {
   if (str == "single") return CrossoverType::Single;
   if (str == "sbx") return CrossoverType::SBX;
+  if (str == "uniform") return CrossoverType::Uniform;
   throw std::runtime_error("Unknown crossover type: " + str);
+}
+
+inline MutationType mutation_from_string(const std::string& str) {
+  if (str == "polynomial") return MutationType::Polynomial;
+  if (str == "density") return MutationType::Density;
+  throw std::runtime_error("Unknown mutation type: " + str);
+}
+
+inline SelectionMethod selection_from_string(const std::string& str) {
+  // Standard selection methods
+  if (str == "sus") return SelectionMethod::SUS;
+  if (str == "rws") return SelectionMethod::RWS;
+  if (str == "tournament") return SelectionMethod::Tournament;
+  
+  // Tournament variations
+  if (str == "tournament_with_t2") return SelectionMethod::TournWITH_t2;
+  if (str == "tournament_with_t4") return SelectionMethod::TournWITH_t4;
+  if (str == "tournament_without_t2") return SelectionMethod::TournWITHOUT_t2;
+  if (str == "tournament_without_t4") return SelectionMethod::TournWITHOUT_t4;
+  if (str == "tournament_part_t2") return SelectionMethod::TournWITHPART_t2;
+  
+  // Ranking selection methods
+  if (str == "exp_rank_rws_c0_9801") return SelectionMethod::ExpRankRWS_c0_9801;
+  if (str == "exp_rank_rws_c0_9606") return SelectionMethod::ExpRankRWS_c0_9606;
+  if (str == "exp_rank_sus_c0_9801") return SelectionMethod::ExpRankSUS_c0_9801;
+  if (str == "exp_rank_sus_c0_9606") return SelectionMethod::ExpRankSUS_c0_9606;
+  if (str == "lin_rank_rws_b2") return SelectionMethod::LinRankRWS_b2;
+  if (str == "lin_rank_rws_b1_6") return SelectionMethod::LinRankRWS_b1_6;
+  if (str == "lin_rank_sus_b2") return SelectionMethod::LinRankSUS_b2;
+  if (str == "lin_rank_sus_b1_6") return SelectionMethod::LinRankSUS_b1_6;
+  
+  throw std::runtime_error("Unknown selection method: " + str);
+}
+
+// Encoding methods
+enum class EncodingMethod {
+  StandardBinary,  // Standard binary encoding
+  GrayCode         // Gray code encoding
+};
+
+// Reproduction type
+enum class ReproductionType {
+  Generational,    // Generational replacement
+  SteadyState      // Steady-state replacement
+};
+
+// For steady-state reproduction: selection for parent pool
+enum class ParentSelectionMethod {
+  Elite,           // Select the best individuals
+  RWS              // Roulette Wheel Selection
+};
+
+// For steady-state reproduction: selection for next generation (or for deletion)
+enum class ReplacementMethod {
+  WorstComma,      // Replace worst individuals from parent population
+  RandComma,       // Replace random individuals from parent population
+  WorstPlus,       // Replace worst individuals from combined parent+child population
+  RandPlus         // Replace random individuals from combined parent+child population
+};
+
+// Helper functions to convert enums to strings
+inline std::string to_string(const EncodingMethod method) {
+  switch (method) {
+    case EncodingMethod::StandardBinary: return "standard_binary";
+    case EncodingMethod::GrayCode: return "gray_code";
+    default: return "unknown";
+  }
+}
+
+inline std::string to_string(const ReproductionType type) {
+  switch (type) {
+    case ReproductionType::Generational: return "generational";
+    case ReproductionType::SteadyState: return "steady_state";
+    default: return "unknown";
+  }
+}
+
+inline std::string to_string(const ParentSelectionMethod method) {
+  switch (method) {
+    case ParentSelectionMethod::Elite: return "elite";
+    case ParentSelectionMethod::RWS: return "rws";
+    default: return "unknown";
+  }
+}
+
+inline std::string to_string(const ReplacementMethod method) {
+  switch (method) {
+    case ReplacementMethod::WorstComma: return "worst_comma";
+    case ReplacementMethod::RandComma: return "rand_comma";
+    case ReplacementMethod::WorstPlus: return "worst_plus";
+    case ReplacementMethod::RandPlus: return "rand_plus";
+    default: return "unknown";
+  }
+}
+
+inline EncodingMethod encoding_from_string(const std::string& str) {
+  if (str == "standard_binary") return EncodingMethod::StandardBinary;
+  if (str == "gray_code") return EncodingMethod::GrayCode;
+  throw std::runtime_error("Unknown encoding method: " + str);
+}
+
+inline ReproductionType reproduction_from_string(const std::string& str) {
+  if (str == "generational") return ReproductionType::Generational;
+  if (str == "steady_state") return ReproductionType::SteadyState;
+  throw std::runtime_error("Unknown reproduction type: " + str);
+}
+
+inline ParentSelectionMethod parent_selection_from_string(const std::string& str) {
+  if (str == "elite") return ParentSelectionMethod::Elite;
+  if (str == "rws") return ParentSelectionMethod::RWS;
+  throw std::runtime_error("Unknown parent selection method: " + str);
+}
+
+inline ReplacementMethod replacement_from_string(const std::string& str) {
+  if (str == "worst_comma") return ReplacementMethod::WorstComma;
+  if (str == "rand_comma") return ReplacementMethod::RandComma;
+  if (str == "worst_plus") return ReplacementMethod::WorstPlus;
+  if (str == "rand_plus") return ReplacementMethod::RandPlus;
+  throw std::runtime_error("Unknown replacement method: " + str);
 }
 
 // Configuration parameters
@@ -272,13 +435,20 @@ struct ga_config {
   SelectionMethod selection_method;
   CrossoverType crossover_type;
   MutationType mutation_type;
+  EncodingMethod encoding_method;
+  
+  // Reproduction parameters
+  ReproductionType reproduction_type = ReproductionType::Generational;
+  double generation_gap = 0.0;  // For steady-state (GG parameter)
+  ParentSelectionMethod parent_selection_method = ParentSelectionMethod::Elite;
+  ReplacementMethod replacement_method = ReplacementMethod::WorstComma;
 
   // For CSV header
   static std::string csv_header() {
     return "Config_ID,Problem,Dimension,Population_Size,Islands,"
            "Generations_Per_Evolution,Total_Evolutions,"
-           "Crossover_Type,Crossover_Prob,Mutation_Type,Mutation_Prob,"
-           "Selection_Method";
+           "Encoding_Method,Crossover_Type,Crossover_Prob,Mutation_Type,Mutation_Prob,"
+           "Selection_Method,Reproduction_Type,Generation_Gap,Parent_Selection,Replacement";
   }
 
   // For CSV output
@@ -291,15 +461,108 @@ struct ga_config {
     ss << island_count << ",";
     ss << generations_per_evolution << ",";
     ss << total_evolutions << ",";
+    ss << to_string(encoding_method) << ",";
     ss << to_string(crossover_type) << ",";
     ss << crossover_prob << ",";
     ss << to_string(mutation_type) << ",";
     ss << mutation_prob << ",";
-    ss << to_string(selection_method);
+    ss << to_string(selection_method) << ",";
+    ss << to_string(reproduction_type) << ",";
+    ss << generation_gap << ",";
+    ss << to_string(parent_selection_method) << ",";
+    ss << to_string(replacement_method);
 
     return ss.str();
   }
 };
+
+// Binary encoding/decoding utilities
+// Convert a real value to standard binary encoding
+std::string encode_real_to_binary(double value, double min, double max, unsigned bits) {
+  // Scale to 0...2^bits-1 range
+  const double range = max - min;
+  const double scaled = (value - min) / range * ((1 << bits) - 1);
+  const unsigned long long intValue = static_cast<unsigned long long>(scaled);
+  
+  // Convert to binary string
+  std::string binary;
+  binary.reserve(bits);
+  
+  for (unsigned i = 0; i < bits; ++i) {
+    binary.push_back(((intValue >> (bits - i - 1)) & 1) ? '1' : '0');
+  }
+  
+  return binary;
+}
+
+// Convert standard binary encoding to real value
+double decode_binary_to_real(const std::string& binary, double min, double max) {
+  const unsigned bits = binary.length();
+  unsigned long long intValue = 0;
+  
+  // Convert from binary string to integer
+  for (char bit : binary) {
+    intValue = (intValue << 1) | (bit == '1' ? 1 : 0);
+  }
+  
+  // Convert to real value in the original range
+  const double range = max - min;
+  return min + (intValue * range) / ((1ULL << bits) - 1);
+}
+
+// Binary to Gray code conversion
+std::string binary_to_gray(const std::string& binary) {
+  if (binary.empty()) return "";
+  
+  std::string gray;
+  gray.reserve(binary.length());
+  
+  // First bit is the same in both binary and Gray code
+  gray.push_back(binary[0]);
+  
+  // XOR operation for the rest of the bits
+  for (size_t i = 1; i < binary.length(); ++i) {
+    gray.push_back(binary[i - 1] == binary[i] ? '0' : '1');
+  }
+  
+  return gray;
+}
+
+// Gray code to binary conversion
+std::string gray_to_binary(const std::string& gray) {
+  if (gray.empty()) return "";
+  
+  std::string binary;
+  binary.reserve(gray.length());
+  
+  // First bit is the same in both binary and Gray code
+  binary.push_back(gray[0]);
+  
+  // XOR operation for the rest of the bits
+  for (size_t i = 1; i < gray.length(); ++i) {
+    binary.push_back(binary[i - 1] == gray[i] ? '0' : '1');
+  }
+  
+  return binary;
+}
+
+// Convert a real value to Gray code encoding
+std::string encode_real_to_gray(double value, double min, double max, unsigned bits) {
+  // First convert to standard binary
+  std::string binary = encode_real_to_binary(value, min, max, bits);
+  
+  // Then convert binary to Gray code
+  return binary_to_gray(binary);
+}
+
+// Convert Gray code encoding to real value
+double decode_gray_to_real(const std::string& gray, double min, double max) {
+  // First convert Gray code to binary
+  std::string binary = gray_to_binary(gray);
+  
+  // Then decode binary to real
+  return decode_binary_to_real(binary, min, max);
+}
 
 // Function to calculate Euclidean distance
 double euclidean_distance(const pagmo::vector_double &a,
@@ -323,6 +586,600 @@ double calculate_std_dev(const std::vector<double> &values, const double avg) {
   }
 
   return std::sqrt(sum_squared_diff / (values.size() - 1));
+}
+
+// Base class for selection methods
+class SelectionOperator {
+public:
+  virtual ~SelectionOperator() = default;
+  virtual std::vector<pagmo::population::size_type> select(
+      const std::vector<double>& fitness, 
+      const pagmo::population::size_type selection_size,
+      pagmo::detail::random_engine_type& rng) const = 0;
+      
+  // Helper to determine if we're minimizing or maximizing
+  static bool is_minimization(const pagmo::problem& prob) {
+    return prob.get_nobj() == 1 && !prob.get_gh_tolerance().first;
+  }
+};
+
+// Roulette Wheel Selection
+class RouletteWheelSelection : public SelectionOperator {
+public:
+  std::vector<pagmo::population::size_type> select(
+      const std::vector<double>& fitness, 
+      const pagmo::population::size_type selection_size,
+      pagmo::detail::random_engine_type& rng) const override {
+    
+    const auto pop_size = fitness.size();
+    std::vector<pagmo::population::size_type> selected;
+    selected.reserve(selection_size);
+    
+    // For minimization problems, invert fitness values
+    std::vector<double> adjusted_fitness = fitness;
+    const double min_fitness = *std::min_element(fitness.begin(), fitness.end());
+    
+    // Convert to maximization problem if needed and ensure positive values
+    if (min_fitness < 0) {
+      const double offset = std::abs(min_fitness) + 1.0;
+      for (auto& f : adjusted_fitness) {
+        f += offset;
+      }
+    }
+    
+    // Calculate total fitness
+    const double total_fitness = std::accumulate(adjusted_fitness.begin(), adjusted_fitness.end(), 0.0);
+    
+    if (total_fitness <= 0.0) {
+      // If total fitness is zero or negative, use uniform selection
+      std::uniform_int_distribution<pagmo::population::size_type> dist(0, pop_size - 1);
+      for (pagmo::population::size_type i = 0; i < selection_size; ++i) {
+        selected.push_back(dist(rng));
+      }
+      return selected;
+    }
+    
+    // Create distribution based on fitness
+    std::uniform_real_distribution<double> dist(0.0, total_fitness);
+    
+    // Select individuals
+    for (pagmo::population::size_type i = 0; i < selection_size; ++i) {
+      const double r = dist(rng);
+      double running_sum = 0.0;
+      
+      for (pagmo::population::size_type j = 0; j < pop_size; ++j) {
+        running_sum += adjusted_fitness[j];
+        if (running_sum >= r) {
+          selected.push_back(j);
+          break;
+        }
+      }
+    }
+    
+    return selected;
+  }
+};
+
+// Stochastic Universal Sampling
+class StochasticUniversalSampling : public SelectionOperator {
+public:
+  std::vector<pagmo::population::size_type> select(
+      const std::vector<double>& fitness, 
+      const pagmo::population::size_type selection_size,
+      pagmo::detail::random_engine_type& rng) const override {
+    
+    const auto pop_size = fitness.size();
+    std::vector<pagmo::population::size_type> selected;
+    selected.reserve(selection_size);
+    
+    // For minimization problems, invert fitness values
+    std::vector<double> adjusted_fitness = fitness;
+    const double min_fitness = *std::min_element(fitness.begin(), fitness.end());
+    
+    // Convert to maximization problem if needed
+    if (min_fitness < 0) {
+      const double offset = std::abs(min_fitness) + 1.0;
+      for (auto& f : adjusted_fitness) {
+        f += offset;
+      }
+    }
+    
+    // Calculate total fitness
+    const double total_fitness = std::accumulate(adjusted_fitness.begin(), adjusted_fitness.end(), 0.0);
+    
+    if (total_fitness <= 0.0) {
+      // If total fitness is zero or negative, use uniform selection
+      std::uniform_int_distribution<pagmo::population::size_type> dist(0, pop_size - 1);
+      for (pagmo::population::size_type i = 0; i < selection_size; ++i) {
+        selected.push_back(dist(rng));
+      }
+      return selected;
+    }
+    
+    // Distance between pointers
+    const double distance = total_fitness / selection_size;
+    
+    // Generate random starting point
+    std::uniform_real_distribution<double> dist(0.0, distance);
+    const double start = dist(rng);
+    
+    // Place pointers
+    std::vector<double> pointers(selection_size);
+    for (pagmo::population::size_type i = 0; i < selection_size; ++i) {
+      pointers[i] = start + i * distance;
+    }
+    
+    // Select individuals
+    for (const double pointer : pointers) {
+      double running_sum = 0.0;
+      
+      for (pagmo::population::size_type j = 0; j < pop_size; ++j) {
+        running_sum += adjusted_fitness[j];
+        if (running_sum >= pointer) {
+          selected.push_back(j);
+          break;
+        }
+      }
+    }
+    
+    return selected;
+  }
+};
+
+// Tournament selection with replacement
+class TournamentWithReplacement : public SelectionOperator {
+private:
+  pagmo::population::size_type tournament_size;
+  
+public:
+  explicit TournamentWithReplacement(pagmo::population::size_type t_size) : tournament_size(t_size) {}
+  
+  std::vector<pagmo::population::size_type> select(
+      const std::vector<double>& fitness, 
+      const pagmo::population::size_type selection_size,
+      pagmo::detail::random_engine_type& rng) const override {
+    
+    const auto pop_size = fitness.size();
+    std::vector<pagmo::population::size_type> selected;
+    selected.reserve(selection_size);
+    
+    // Distribution for selecting individuals for tournament
+    std::uniform_int_distribution<pagmo::population::size_type> dist(0, pop_size - 1);
+    
+    // Run tournaments
+    for (pagmo::population::size_type i = 0; i < selection_size; ++i) {
+      pagmo::population::size_type best_idx = dist(rng);
+      double best_fitness = fitness[best_idx];
+      
+      // Conduct tournament
+      for (pagmo::population::size_type j = 1; j < tournament_size; ++j) {
+        const auto idx = dist(rng);
+        if (fitness[idx] < best_fitness) {  // Assuming minimization, adjust if maximizing
+          best_idx = idx;
+          best_fitness = fitness[idx];
+        }
+      }
+      
+      selected.push_back(best_idx);
+    }
+    
+    return selected;
+  }
+};
+
+// Tournament selection without replacement
+class TournamentWithoutReplacement : public SelectionOperator {
+private:
+  pagmo::population::size_type tournament_size;
+  
+public:
+  explicit TournamentWithoutReplacement(pagmo::population::size_type t_size) : tournament_size(t_size) {}
+  
+  std::vector<pagmo::population::size_type> select(
+      const std::vector<double>& fitness, 
+      const pagmo::population::size_type selection_size,
+      pagmo::detail::random_engine_type& rng) const override {
+    
+    const auto pop_size = fitness.size();
+    std::vector<pagmo::population::size_type> selected;
+    selected.reserve(selection_size);
+    
+    // Run tournaments
+    for (pagmo::population::size_type i = 0; i < selection_size; ++i) {
+      // Create tournament participants without replacement
+      std::vector<pagmo::population::size_type> tournament;
+      tournament.reserve(tournament_size);
+      
+      // Sample without replacement
+      std::vector<pagmo::population::size_type> candidates(pop_size);
+      std::iota(candidates.begin(), candidates.end(), 0);  // Fill with 0, 1, 2, ...
+      std::shuffle(candidates.begin(), candidates.end(), rng);
+      
+      // Take first 'tournament_size' elements
+      const auto actual_size = std::min(tournament_size, pop_size);
+      tournament.assign(candidates.begin(), candidates.begin() + actual_size);
+      
+      // Find the best from the tournament
+      pagmo::population::size_type best_idx = tournament[0];
+      double best_fitness = fitness[best_idx];
+      
+      for (size_t j = 1; j < tournament.size(); ++j) {
+        const auto idx = tournament[j];
+        if (fitness[idx] < best_fitness) {  // Assuming minimization
+          best_idx = idx;
+          best_fitness = fitness[idx];
+        }
+      }
+      
+      selected.push_back(best_idx);
+    }
+    
+    return selected;
+  }
+};
+
+// Tournament with participation probability
+class TournamentWithParticipation : public SelectionOperator {
+private:
+  pagmo::population::size_type tournament_size;
+  
+public:
+  explicit TournamentWithParticipation(pagmo::population::size_type t_size) : tournament_size(t_size) {}
+  
+  std::vector<pagmo::population::size_type> select(
+      const std::vector<double>& fitness, 
+      const pagmo::population::size_type selection_size,
+      pagmo::detail::random_engine_type& rng) const override {
+    
+    const auto pop_size = fitness.size();
+    std::vector<pagmo::population::size_type> selected;
+    selected.reserve(selection_size);
+    
+    // Distribution for selecting individuals for tournament
+    std::uniform_int_distribution<pagmo::population::size_type> dist(0, pop_size - 1);
+    
+    // Participation probability distribution
+    std::uniform_real_distribution<double> prob_dist(0.0, 1.0);
+    constexpr double participation_prob = 0.75;  // 75% chance to participate
+    
+    // Run tournaments
+    for (pagmo::population::size_type i = 0; i < selection_size; ++i) {
+      std::vector<pagmo::population::size_type> tournament;
+      
+      // Fill tournament with participants based on participation probability
+      size_t attempts = 0;
+      const size_t max_attempts = pop_size * 2;  // Avoid infinite loop
+      
+      while (tournament.size() < tournament_size && attempts < max_attempts) {
+        const auto idx = dist(rng);
+        if (prob_dist(rng) <= participation_prob) {
+          tournament.push_back(idx);
+        }
+        ++attempts;
+      }
+      
+      if (tournament.empty()) {
+        // If no participants, select randomly
+        selected.push_back(dist(rng));
+      } else {
+        // Find the best from the tournament
+        pagmo::population::size_type best_idx = tournament[0];
+        double best_fitness = fitness[best_idx];
+        
+        for (size_t j = 1; j < tournament.size(); ++j) {
+          const auto idx = tournament[j];
+          if (fitness[idx] < best_fitness) {  // Assuming minimization
+            best_idx = idx;
+            best_fitness = fitness[idx];
+          }
+        }
+        
+        selected.push_back(best_idx);
+      }
+    }
+    
+    return selected;
+  }
+};
+
+// Exponential Ranking Selection (RWS-based)
+class ExponentialRankRWS : public SelectionOperator {
+private:
+  double c;  // Base value
+  
+public:
+  explicit ExponentialRankRWS(double c_val) : c(c_val) {}
+  
+  std::vector<pagmo::population::size_type> select(
+      const std::vector<double>& fitness, 
+      const pagmo::population::size_type selection_size,
+      pagmo::detail::random_engine_type& rng) const override {
+    
+    const auto pop_size = fitness.size();
+    std::vector<pagmo::population::size_type> selected;
+    selected.reserve(selection_size);
+    
+    // Create indexes and sort by fitness (assuming minimization)
+    std::vector<pagmo::population::size_type> indices(pop_size);
+    std::iota(indices.begin(), indices.end(), 0);
+    
+    std::sort(indices.begin(), indices.end(), [&fitness](size_t a, size_t b) {
+      return fitness[a] < fitness[b];  // Ascending order for minimization
+    });
+    
+    // Calculate exponential ranks
+    std::vector<double> ranks(pop_size);
+    for (pagmo::population::size_type i = 0; i < pop_size; ++i) {
+      ranks[indices[i]] = c * std::pow(1.0 - c, i);
+    }
+    
+    // Calculate total rank sum
+    const double total_rank = std::accumulate(ranks.begin(), ranks.end(), 0.0);
+    
+    // Perform selection using RWS on ranks
+    std::uniform_real_distribution<double> dist(0.0, total_rank);
+    
+    for (pagmo::population::size_type i = 0; i < selection_size; ++i) {
+      const double r = dist(rng);
+      double running_sum = 0.0;
+      
+      for (pagmo::population::size_type j = 0; j < pop_size; ++j) {
+        running_sum += ranks[j];
+        if (running_sum >= r) {
+          selected.push_back(j);
+          break;
+        }
+      }
+    }
+    
+    return selected;
+  }
+};
+
+// Exponential Ranking Selection (SUS-based)
+class ExponentialRankSUS : public SelectionOperator {
+private:
+  double c;  // Base value
+  
+public:
+  explicit ExponentialRankSUS(double c_val) : c(c_val) {}
+  
+  std::vector<pagmo::population::size_type> select(
+      const std::vector<double>& fitness, 
+      const pagmo::population::size_type selection_size,
+      pagmo::detail::random_engine_type& rng) const override {
+    
+    const auto pop_size = fitness.size();
+    std::vector<pagmo::population::size_type> selected;
+    selected.reserve(selection_size);
+    
+    // Create indexes and sort by fitness (assuming minimization)
+    std::vector<pagmo::population::size_type> indices(pop_size);
+    std::iota(indices.begin(), indices.end(), 0);
+    
+    std::sort(indices.begin(), indices.end(), [&fitness](size_t a, size_t b) {
+      return fitness[a] < fitness[b];  // Ascending order for minimization
+    });
+    
+    // Calculate exponential ranks
+    std::vector<double> ranks(pop_size);
+    for (pagmo::population::size_type i = 0; i < pop_size; ++i) {
+      ranks[indices[i]] = c * std::pow(1.0 - c, i);
+    }
+    
+    // Calculate total rank sum
+    const double total_rank = std::accumulate(ranks.begin(), ranks.end(), 0.0);
+    
+    // Distance between pointers for SUS
+    const double distance = total_rank / selection_size;
+    
+    // Generate random starting point
+    std::uniform_real_distribution<double> dist(0.0, distance);
+    const double start = dist(rng);
+    
+    // Place pointers
+    std::vector<double> pointers(selection_size);
+    for (pagmo::population::size_type i = 0; i < selection_size; ++i) {
+      pointers[i] = start + i * distance;
+    }
+    
+    // Select individuals
+    for (const double pointer : pointers) {
+      double running_sum = 0.0;
+      
+      for (pagmo::population::size_type j = 0; j < pop_size; ++j) {
+        running_sum += ranks[j];
+        if (running_sum >= pointer) {
+          selected.push_back(j);
+          break;
+        }
+      }
+    }
+    
+    return selected;
+  }
+};
+
+// Linear Ranking Selection (RWS-based)
+class LinearRankRWS : public SelectionOperator {
+private:
+  double beta;  // Selection pressure parameter (1.0 <= beta <= 2.0)
+  
+public:
+  explicit LinearRankRWS(double b) : beta(b) {}
+  
+  std::vector<pagmo::population::size_type> select(
+      const std::vector<double>& fitness, 
+      const pagmo::population::size_type selection_size,
+      pagmo::detail::random_engine_type& rng) const override {
+    
+    const auto pop_size = fitness.size();
+    std::vector<pagmo::population::size_type> selected;
+    selected.reserve(selection_size);
+    
+    // Create indexes and sort by fitness (assuming minimization)
+    std::vector<pagmo::population::size_type> indices(pop_size);
+    std::iota(indices.begin(), indices.end(), 0);
+    
+    std::sort(indices.begin(), indices.end(), [&fitness](size_t a, size_t b) {
+      return fitness[a] < fitness[b];  // Ascending order for minimization
+    });
+    
+    // Calculate linear ranks using beta
+    std::vector<double> ranks(pop_size);
+    for (pagmo::population::size_type i = 0; i < pop_size; ++i) {
+      // Formula: 2-beta + 2*(beta-1)*(i/(N-1))
+      // For i=0 (best): rank = 2-beta
+      // For i=N-1 (worst): rank = beta
+      const double rank_value = 2.0 - beta + 2.0 * (beta - 1.0) * (static_cast<double>(i) / (pop_size - 1));
+      ranks[indices[i]] = rank_value;
+    }
+    
+    // Calculate total rank sum
+    const double total_rank = std::accumulate(ranks.begin(), ranks.end(), 0.0);
+    
+    // Perform selection using RWS on ranks
+    std::uniform_real_distribution<double> dist(0.0, total_rank);
+    
+    for (pagmo::population::size_type i = 0; i < selection_size; ++i) {
+      const double r = dist(rng);
+      double running_sum = 0.0;
+      
+      for (pagmo::population::size_type j = 0; j < pop_size; ++j) {
+        running_sum += ranks[j];
+        if (running_sum >= r) {
+          selected.push_back(j);
+          break;
+        }
+      }
+    }
+    
+    return selected;
+  }
+};
+
+// Linear Ranking Selection (SUS-based)
+class LinearRankSUS : public SelectionOperator {
+private:
+  double beta;  // Selection pressure parameter (1.0 <= beta <= 2.0)
+  
+public:
+  explicit LinearRankSUS(double b) : beta(b) {}
+  
+  std::vector<pagmo::population::size_type> select(
+      const std::vector<double>& fitness, 
+      const pagmo::population::size_type selection_size,
+      pagmo::detail::random_engine_type& rng) const override {
+    
+    const auto pop_size = fitness.size();
+    std::vector<pagmo::population::size_type> selected;
+    selected.reserve(selection_size);
+    
+    // Create indexes and sort by fitness (assuming minimization)
+    std::vector<pagmo::population::size_type> indices(pop_size);
+    std::iota(indices.begin(), indices.end(), 0);
+    
+    std::sort(indices.begin(), indices.end(), [&fitness](size_t a, size_t b) {
+      return fitness[a] < fitness[b];  // Ascending order for minimization
+    });
+    
+    // Calculate linear ranks using beta
+    std::vector<double> ranks(pop_size);
+    for (pagmo::population::size_type i = 0; i < pop_size; ++i) {
+      // Formula: 2-beta + 2*(beta-1)*(i/(N-1))
+      // For i=0 (best): rank = 2-beta
+      // For i=N-1 (worst): rank = beta
+      const double rank_value = 2.0 - beta + 2.0 * (beta - 1.0) * (static_cast<double>(i) / (pop_size - 1));
+      ranks[indices[i]] = rank_value;
+    }
+    
+    // Calculate total rank sum
+    const double total_rank = std::accumulate(ranks.begin(), ranks.end(), 0.0);
+    
+    // Distance between pointers for SUS
+    const double distance = total_rank / selection_size;
+    
+    // Generate random starting point
+    std::uniform_real_distribution<double> dist(0.0, distance);
+    const double start = dist(rng);
+    
+    // Place pointers
+    std::vector<double> pointers(selection_size);
+    for (pagmo::population::size_type i = 0; i < selection_size; ++i) {
+      pointers[i] = start + i * distance;
+    }
+    
+    // Select individuals
+    for (const double pointer : pointers) {
+      double running_sum = 0.0;
+      
+      for (pagmo::population::size_type j = 0; j < pop_size; ++j) {
+        running_sum += ranks[j];
+        if (running_sum >= pointer) {
+          selected.push_back(j);
+          break;
+        }
+      }
+    }
+    
+    return selected;
+  }
+};
+
+// Factory function to create selection operator based on the selection method
+std::unique_ptr<SelectionOperator> create_selection_operator(SelectionMethod method) {
+  switch (method) {
+    case SelectionMethod::SUS:
+      return std::make_unique<StochasticUniversalSampling>();
+      
+    case SelectionMethod::RWS:
+      return std::make_unique<RouletteWheelSelection>();
+      
+    case SelectionMethod::Tournament:
+      return std::make_unique<TournamentWithReplacement>(2);  // Default tournament size 2
+      
+    case SelectionMethod::TournWITH_t2:
+      return std::make_unique<TournamentWithReplacement>(2);
+      
+    case SelectionMethod::TournWITH_t4:
+      return std::make_unique<TournamentWithReplacement>(4);
+      
+    case SelectionMethod::TournWITHOUT_t2:
+      return std::make_unique<TournamentWithoutReplacement>(2);
+      
+    case SelectionMethod::TournWITHOUT_t4:
+      return std::make_unique<TournamentWithoutReplacement>(4);
+      
+    case SelectionMethod::TournWITHPART_t2:
+      return std::make_unique<TournamentWithParticipation>(2);
+      
+    case SelectionMethod::ExpRankRWS_c0_9801:
+      return std::make_unique<ExponentialRankRWS>(0.9801);
+      
+    case SelectionMethod::ExpRankRWS_c0_9606:
+      return std::make_unique<ExponentialRankRWS>(0.9606);
+      
+    case SelectionMethod::ExpRankSUS_c0_9801:
+      return std::make_unique<ExponentialRankSUS>(0.9801);
+      
+    case SelectionMethod::ExpRankSUS_c0_9606:
+      return std::make_unique<ExponentialRankSUS>(0.9606);
+      
+    case SelectionMethod::LinRankRWS_b2:
+      return std::make_unique<LinearRankRWS>(2.0);
+      
+    case SelectionMethod::LinRankRWS_b1_6:
+      return std::make_unique<LinearRankRWS>(1.6);
+      
+    case SelectionMethod::LinRankSUS_b2:
+      return std::make_unique<LinearRankSUS>(2.0);
+      
+    case SelectionMethod::LinRankSUS_b1_6:
+      return std::make_unique<LinearRankSUS>(1.6);
+      
+    default:
+      throw std::runtime_error("Unknown selection method");
+  }
 }
 
 // Constants for determining successful runs
@@ -873,19 +1730,28 @@ int main() {
   // 1. N=100, n=1, 2, 3, 5
   // 2. Then repeat for N=200, 300, 400
 
-  // Define population sizes to test
+  // Define population sizes to test (as per TASK.md)
   constexpr std::array population_sizes = {100, 200, 300, 400};
 
-  // Define dimensions to test
+  // Define dimensions to test (as per TASK.md)
   constexpr std::array dimensions = {1, 2, 3, 5};
 
-  // Crossover types (single point and uniform)
-  constexpr std::array crossover_types = {CrossoverType::Single, CrossoverType::SBX};
+  // Encoding methods
+  constexpr std::array encoding_methods = {
+      EncodingMethod::StandardBinary,
+      EncodingMethod::GrayCode
+  };
 
-  // Crossover probabilities (as per the task)
+  // Crossover types (as per TASK.md)
+  constexpr std::array crossover_types = {
+      CrossoverType::Single,   // Single-point crossover
+      CrossoverType::Uniform   // Standard uniform crossover
+  };
+
+  // Crossover probabilities (as per TASK.md)
   constexpr std::array crossover_probs = {0.0, 0.6, 0.8, 1.0};
 
-  // Mutation probabilities (as per the task, for different dimensions)
+  // Mutation probabilities (as per TASK.md, for different dimensions)
   std::map<unsigned, std::array<double, 3>> mutation_probs_by_dim = {
       {1, {0.0, 0.001, 0.01}},    // n=1
       {2, {0.0, 0.0005, 0.005}},  // n=2
@@ -893,79 +1759,138 @@ int main() {
       {5, {0.0, 0.0002, 0.0005}}  // n=5
   };
 
-  // Selection method (using tournament as it's supported by PaGMO)
-  // Ideally we would implement all the selection methods from the task,
-  // but for this demo we'll use tournament which PaGMO supports
-  const auto selection_method = SelectionMethod::Tournament;
+  // Mutation types
+  constexpr std::array mutation_types = {
+      MutationType::Polynomial,  // Using polynomial mutation for density-based mutation
+      MutationType::Density      // Explicit density-based mutation
+  };
 
-  // For each population size and dimension combination
-  for (unsigned pop_size : population_sizes) {
-    for (unsigned dim : dimensions) {
-      // Basic config
-      ga_config config;
-      config.problem_type = ProblemType::Ackley;
-      config.dimension = dim;
-      config.population_size = pop_size;
-      config.island_count = 16;  // Using 16 islands for parallelization
-      config.generations_per_evolution = 50;
-      config.total_evolutions = 10;
-      config.selection_method = selection_method;
+  // Reproduction types
+  constexpr std::array reproduction_types = {
+      ReproductionType::Generational,  // Generational replacement
+      ReproductionType::SteadyState    // Steady-state replacement
+  };
 
-      // Get the appropriate mutation probabilities for this dimension
-      const auto &mutation_probs = mutation_probs_by_dim[dim];
+  // Generation gap values for steady-state (as per TASK.md)
+  constexpr std::array generation_gaps = {0.05, 0.1, 0.2, 0.5};
 
-      // Loop through all combinations
-      for (const auto &crossover_type : crossover_types) {
-        for (double crossover_prob : crossover_probs) {
-          for (double mutation_prob : mutation_probs) {
-            config.crossover_type = crossover_type;
-            config.crossover_prob = crossover_prob;
-            config.mutation_type = MutationType::Polynomial;  // Using polynomial mutation
-                                                               // for density-based mutation
-            config.mutation_prob = mutation_prob;
+  // Parent selection methods for steady-state
+  constexpr std::array parent_selection_methods = {
+      ParentSelectionMethod::Elite,  // Select best individuals
+      ParentSelectionMethod::RWS     // Roulette wheel selection
+  };
 
-            configs.push_back(config);
-            config_id++;
-          }
-        }
-      }
-    }
-  }
+  // Replacement methods for steady-state
+  constexpr std::array replacement_methods = {
+      ReplacementMethod::WorstComma,  // Replace worst from parent population
+      ReplacementMethod::RandComma,   // Replace random from parent population
+      ReplacementMethod::WorstPlus,   // Replace worst from combined population
+      ReplacementMethod::RandPlus     // Replace random from combined population
+  };
 
-  // ==============================
-  // DEB FUNCTION CONFIGURATIONS
-  // ==============================
+  // All selection methods (same for each population size as per TASK.md)
+  constexpr std::array selection_methods = {
+      SelectionMethod::SUS,
+      SelectionMethod::RWS,
+      SelectionMethod::TournWITH_t2,
+      SelectionMethod::TournWITHOUT_t2,
+      SelectionMethod::TournWITHPART_t2,
+      SelectionMethod::ExpRankRWS_c0_9801,
+      SelectionMethod::ExpRankSUS_c0_9801,
+      SelectionMethod::LinRankRWS_b2,
+      SelectionMethod::LinRankSUS_b2,
+      SelectionMethod::TournWITH_t4,
+      SelectionMethod::TournWITHOUT_t4,
+      SelectionMethod::ExpRankRWS_c0_9606,
+      SelectionMethod::ExpRankSUS_c0_9606,
+      SelectionMethod::LinRankRWS_b1_6,
+      SelectionMethod::LinRankSUS_b1_6
+  };
 
-  // We'll use the same systematic approach for Deb function
-  // as required by the task
+  // Define problem types to test
+  constexpr std::array problem_types = {
+      ProblemType::Ackley,
+      ProblemType::Deb
+  };
 
-  for (unsigned pop_size : population_sizes) {
-    for (const unsigned dim : dimensions) {
-      // Basic config
-      ga_config config;
-      config.problem_type = ProblemType::Deb;
-      config.dimension = dim;
-      config.population_size = pop_size;
-      config.island_count = 16;  // Using 16 islands for parallelization
-      config.generations_per_evolution = 50;
-      config.total_evolutions = 10;
-      config.selection_method = selection_method;
-
-      // Get the appropriate mutation probabilities for this dimension
-      const auto &mutation_probs = mutation_probs_by_dim[dim];
-
-      // Loop through all combinations
-      for (const auto &crossover_type : crossover_types) {
-        for (double crossover_prob : crossover_probs) {
-          for (double mutation_prob : mutation_probs) {
-            config.crossover_type = crossover_type;
-            config.crossover_prob = crossover_prob;
-            config.mutation_type = MutationType::Polynomial;  // Using polynomial mutation
-                                                               // for density-based mutation
-            config.mutation_prob = mutation_prob;
-
-            configs.push_back(config);
-            config_id++;
+  // Loop through all combinations of parameters for all problems
+  for (const auto problem_type : problem_types) {
+    for (auto pop_size : population_sizes) {
+      for (auto dim : dimensions) {
+        // Get the appropriate mutation probabilities for this dimension
+        const auto &mutation_probs = mutation_probs_by_dim[dim];
+        
+        for (const auto encoding_method : encoding_methods) {
+          for (const auto &crossover_type : crossover_types) {
+            for (double crossover_prob : crossover_probs) {
+              for (const auto mutation_type : mutation_types) {
+                for (double mutation_prob : mutation_probs) {
+                  for (const auto reproduction_type : reproduction_types) {
+                    if (reproduction_type == ReproductionType::Generational) {
+                      // For generational reproduction type
+                      for (const auto &selection_method : selection_methods) {
+                        // Create config for generational reproduction type
+                        ga_config config;
+                        config.problem_type = problem_type;
+                        config.dimension = dim;
+                        config.population_size = pop_size;
+                        config.island_count = 16;  // Using 16 islands for parallelization
+                        config.generations_per_evolution = 50;
+                        config.total_evolutions = 10;
+                        
+                        config.encoding_method = encoding_method;
+                        config.crossover_type = crossover_type;
+                        config.crossover_prob = crossover_prob;
+                        config.mutation_type = mutation_type;
+                        config.mutation_prob = mutation_prob;
+                        config.selection_method = selection_method;
+                        
+                        // Set to generational reproduction type
+                        config.reproduction_type = reproduction_type;
+                        config.generation_gap = 0.0;  // Not used for generational
+                        
+                        configs.push_back(config);
+                        config_id++;
+                      }
+                    } else if (reproduction_type == ReproductionType::SteadyState) {
+                      // For steady-state reproduction type
+                      for (double gap : generation_gaps) {
+                        for (const auto parent_selection : parent_selection_methods) {
+                          for (const auto replacement_method : replacement_methods) {
+                            // Create config for steady-state reproduction type
+                            ga_config config;
+                            config.problem_type = problem_type;
+                            config.dimension = dim;
+                            config.population_size = pop_size;
+                            config.island_count = 16;  // Using 16 islands for parallelization
+                            config.generations_per_evolution = 50;
+                            config.total_evolutions = 10;
+                            
+                            // Default selection method for steady-state
+                            config.selection_method = SelectionMethod::Tournament;
+                            
+                            config.encoding_method = encoding_method;
+                            config.crossover_type = crossover_type;
+                            config.crossover_prob = crossover_prob;
+                            config.mutation_type = mutation_type;
+                            config.mutation_prob = mutation_prob;
+                            
+                            // Set steady-state specific parameters
+                            config.reproduction_type = reproduction_type;
+                            config.generation_gap = gap;
+                            config.parent_selection_method = parent_selection;
+                            config.replacement_method = replacement_method;
+                            
+                            configs.push_back(config);
+                            config_id++;
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
