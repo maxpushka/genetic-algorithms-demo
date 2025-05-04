@@ -1,3 +1,6 @@
 build
 .cache
+
+# Runtime artifacts
 results
+logs

@@ -18,8 +18,8 @@ set(CMAKE_CXX_SCAN_FOR_MODULES 1)
 include(FetchContent)
 
 # ------------------- spdlog -------------------
-# FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.15.2.tar.gz)
-# FetchContent_MakeAvailable(spdlog)
+ FetchContent_Declare(spdlog URL https://github.com/gabime/spdlog/archive/refs/tags/v1.15.2.tar.gz)
+ FetchContent_MakeAvailable(spdlog)
 
 # ------------------- PaGMO -------------------
 find_package(Pagmo REQUIRED)
@@ -40,10 +40,11 @@ add_executable(${PROJECT_NAME}
     src/initialization.cc
     src/mutation.cc
     src/termination.cc
+    src/logging.cc
     src/experiment.cc
 )
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_link_libraries(${PROJECT_NAME} PRIVATE Pagmo::pagmo)
+target_link_libraries(${PROJECT_NAME} PRIVATE Pagmo::pagmo spdlog)
 
 # ==================================================
 # = Target Configurations

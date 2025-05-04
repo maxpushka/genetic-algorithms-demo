@@ -4,6 +4,8 @@
 #include <numeric>
 #include <string>
 
+#include "include/logging.h"
+
 // Constructor
 TerminationChecker::TerminationChecker(const ga_config& config)
     : m_config(config), m_iterations(0), m_termination_reason("") {
@@ -80,6 +82,7 @@ bool TerminationChecker::check_termination(const pagmo::population& pop) {
 bool TerminationChecker::check_homogeneity(const pagmo::population& pop, 
                                           const EncodingOperator& encoder) {
     if (pop.size() <= 1) {
+        LOG_DEBUG("Population size <= 1, skipping homogeneity check");
         return false;
     }
     
@@ -91,8 +94,12 @@ bool TerminationChecker::check_homogeneity(const pagmo::population& pop,
     
     // All chromosomes should have the same length
     const auto chromosome_length = binary_chromosomes[0].size();
+    LOG_DEBUG("Checking homogeneity for {} chromosomes of length {}", 
+              binary_chromosomes.size(), chromosome_length);
     
     // Count how many chromosomes have the same value at each position
+    unsigned non_homogeneous_genes = 0;
+    
     for (size_t gene_pos = 0; gene_pos < chromosome_length; ++gene_pos) {
         // Count '0's and '1's at this position
         size_t zeros = 0;
@@ -113,11 +120,23 @@ bool TerminationChecker::check_homogeneity(const pagmo::population& pop,
         
         // If any gene position has less than 99% homogeneity, population is not homogeneous
         if (homogeneity < 0.99) {
-            return false;
+            non_homogeneous_genes++;
+            // Only log a sample of non-homogeneous genes to avoid excessive output
+            if (non_homogeneous_genes <= 5) {
+                LOG_DEBUG("Gene position {} not homogeneous: {:.2f}% ({}:{}) homogeneity", 
+                          gene_pos, homogeneity * 100.0, zeros, ones);
+            }
         }
     }
     
+    if (non_homogeneous_genes > 0) {
+        LOG_DEBUG("Population not homogeneous: {} of {} genes below 99% threshold", 
+                 non_homogeneous_genes, chromosome_length);
+        return false;
+    }
+    
     // All gene positions have at least 99% homogeneity
+    LOG_INFO("Population reached homogeneity threshold (99%) after {} iterations", m_iterations);
     return true;
 }
 
@@ -125,24 +144,43 @@ bool TerminationChecker::check_homogeneity(const pagmo::population& pop,
 bool TerminationChecker::check_fitness_stability() {
     // Need at least 10 generations to check stability
     if (m_avg_fitness_history.size() < 10) {
+        LOG_DEBUG("Not enough fitness history ({} < 10) to check stability", 
+                 m_avg_fitness_history.size());
         return false;
     }
     
     // Look at the last 10 values and check if change is less than 0.0001
     const double latest = m_avg_fitness_history.back();
     
+    double max_diff = 0.0;
+    double max_diff_value = 0.0;
+    
     for (auto it = m_avg_fitness_history.begin(); it != m_avg_fitness_history.end() - 1; ++it) {
-        if (std::abs(*it - latest) > 0.0001) {
+        double diff = std::abs(*it - latest);
+        if (diff > max_diff) {
+            max_diff = diff;
+            max_diff_value = *it;
+        }
+        
+        if (diff > 0.0001) {
+            LOG_DEBUG("Fitness change too large: {} vs {} (diff: {})", 
+                     *it, latest, diff);
             return false;
         }
     }
     
+    LOG_INFO("Fitness stabilized after {} iterations. Max difference: {} (threshold: 0.0001)", 
+             m_iterations, max_diff);
     return true;
 }
 
 // Check if maximum number of iterations has been reached
 bool TerminationChecker::check_max_iterations() {
-    return m_iterations >= m_max_iterations;
+    bool reached = m_iterations >= m_max_iterations;
+    if (reached) {
+        LOG_WARN("Maximum iterations ({}) reached without convergence", m_max_iterations);
+    }
+    return reached;
 }
 
 // Get the reason for termination

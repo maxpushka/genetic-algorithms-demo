@@ -4,13 +4,13 @@
 #include <chrono>
 #include <fstream>
 #include <future>
-#include <iostream>
 #include <numeric>
 #include <thread>
 
 #include "include/common.h"
 #include "include/encoding_operator.h"
 #include "include/initialization.h"
+#include "include/logging.h"
 #include "include/mutation.h"
 #include "include/operators.h"
 #include "include/problems.h"
@@ -318,10 +318,9 @@ std::vector<run_stats> run_experiment_batch(
     std::mutex& cout_mutex, const unsigned num_runs) {
   {
     std::lock_guard lock(cout_mutex);
-    std::cout << "Starting config " << config_id << ": "
-              << to_string(config.problem_type) << ", dim=" << config.dimension
-              << ", pop=" << config.population_size
-              << ", islands=" << config.island_count << std::endl;
+    LOG_INFO("Starting config {}: {}, dim={}, pop={}, islands={}", 
+            config_id, to_string(config.problem_type), config.dimension,
+            config.population_size, config.island_count);
   }
 
   // Thread-local storage for results
@@ -331,8 +330,7 @@ std::vector<run_stats> run_experiment_batch(
   for (unsigned run = 0; run < num_runs; ++run) {
     {
       std::lock_guard lock(cout_mutex);
-      std::cout << "  Config " << config_id << " - Run " << run + 1 << "/"
-                << num_runs << "..." << std::flush;
+      LOG_DEBUG("  Config {} - Run {}/{}...", config_id, run + 1, num_runs);
     }
 
     // Use a different seed for each run
@@ -348,13 +346,19 @@ std::vector<run_stats> run_experiment_batch(
 
     {
       std::lock_guard lock(cout_mutex);
-      std::cout << (stats.is_successful ? " Success" : " Failure") << std::endl;
+      if (stats.is_successful) {
+        LOG_INFO("  Config {} - Run {}/{}: Success (reason: {})", 
+                config_id, run + 1, num_runs, stats.termination_reason);
+      } else {
+        LOG_WARN("  Config {} - Run {}/{}: Failure (reason: {})", 
+                config_id, run + 1, num_runs, stats.termination_reason);
+      }
     }
   }
 
   {
     std::lock_guard lock(cout_mutex);
-    std::cout << "Finished processing config " << config_id << std::endl;
+    LOG_INFO("Finished processing config {}", config_id);
   }
 
   return local_runs;
@@ -364,15 +368,14 @@ std::vector<run_stats> run_experiment_batch(
 void run_config(const int config_id, const ga_config& config,
                 std::ofstream& detailed_csv, std::ofstream& summary_csv,
                 const unsigned num_runs) {
-  std::cout << "Running config " << config_id << ": "
-            << to_string(config.problem_type) << ", dim=" << config.dimension
-            << ", pop=" << config.population_size
-            << ", islands=" << config.island_count << std::endl;
+  LOG_INFO("Running config {}: {}, dim={}, pop={}, islands={}", 
+          config_id, to_string(config.problem_type), config.dimension,
+          config.population_size, config.island_count);
 
   std::vector<run_stats> runs;
 
   for (unsigned run = 0; run < num_runs; ++run) {
-    std::cout << "  Run " << run + 1 << "/" << num_runs << "..." << std::flush;
+    LOG_DEBUG("  Run {}/{}...", run + 1, num_runs);
 
     // Use a different seed for each run
     const unsigned seed = config_id * 1000 + run;
@@ -382,9 +385,19 @@ void run_config(const int config_id, const ga_config& config,
     detailed_csv << config_id << "," << run + 1 << "," << stats.to_csv()
                  << std::endl;
 
+    // Log to the results logger
+    RESULT_LOG("Config {}, Run {}: {}, {} iterations, f_max={}, converged={}",
+               config_id, run + 1, 
+               stats.is_successful ? "Success" : "Failure",
+               stats.iterations, stats.f_max, stats.convergence);
+
     runs.push_back(stats);
 
-    std::cout << (stats.is_successful ? " Success" : " Failure") << std::endl;
+    if (stats.is_successful) {
+      LOG_INFO("  Run {}/{}: Success (reason: {})", run + 1, num_runs, stats.termination_reason);
+    } else {
+      LOG_WARN("  Run {}/{}: Failure (reason: {})", run + 1, num_runs, stats.termination_reason);
+    }
   }
 
   // Calculate aggregate statistics
@@ -393,4 +406,8 @@ void run_config(const int config_id, const ga_config& config,
   // Write summary for this config
   summary_csv << config_id << "," << config.to_csv(config_id) << ","
               << agg_stats.to_csv() << std::endl;
+              
+  // Log summary statistics
+  LOG_INFO("Config {} summary: Success rate: {}%, Avg iterations: {}, Avg fitness: {}", 
+          config_id, agg_stats.success_rate, agg_stats.avg_iterations, agg_stats.avg_f_max);
 }

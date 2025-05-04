@@ -14,6 +14,7 @@
 #include "include/common.h"
 #include "include/encoding.h"
 #include "include/experiment.h"
+#include "include/logging.h"
 #include "include/operators.h"
 #include "include/problems.h"
 #include "include/queue.h"
@@ -207,10 +208,11 @@ std::vector<ga_config> create_configurations() {
 }
 
 int main() {
-  std::cout << "Genetic Algorithm Optimization - Ackley and Deb Functions"
-            << std::endl;
-  std::cout << "========================================================="
-            << std::endl;
+  // Initialize logging system
+  Logger::init("ga.log", spdlog::level::info);
+  
+  LOG_INFO("Genetic Algorithm Optimization - Ackley and Deb Functions");
+  LOG_INFO("=========================================================");
 
   // Create output directory
   std::system("mkdir -p results");
@@ -236,14 +238,13 @@ int main() {
   // Store the original number of configurations before potentially reducing for
   // demo mode
   const size_t total_configs = configs.size();
-  std::cout << "Total configurations generated: " << total_configs << std::endl;
+  LOG_INFO("Total configurations generated: {}", total_configs);
 
   if constexpr (NUM_RUNS < 100) {
     // When running in demo mode
     std::vector<ga_config> demo_configs;
 
-    std::cout << "Demo mode: Running a subset of configurations for testing."
-              << std::endl;
+    LOG_WARN("Demo mode: Running a subset of configurations for testing.");
 
     // Select a small representative sample of configurations
     if (total_configs <= 8) {
@@ -259,13 +260,12 @@ int main() {
       }
     }
 
-    std::cout << "Demo mode: Running " << demo_configs.size()
-              << " configurations instead of the full set of " << total_configs
-              << " configurations." << std::endl;
+    LOG_INFO("Demo mode: Running {} configurations instead of the full set of {} configurations.", 
+             demo_configs.size(), total_configs);
     configs = demo_configs;
   } else {
-    std::cout << "Running all " << total_configs << " configurations with "
-              << NUM_RUNS << " runs each." << std::endl;
+    LOG_INFO("Running all {} configurations with {} runs each.", 
+             total_configs, NUM_RUNS);
   }
 
   // Print configuration breakdown
@@ -278,11 +278,9 @@ int main() {
       deb_configs++;
     }
   }
-  std::cout << "Configuration breakdown: " << ackley_configs
-            << " Ackley configurations, " << deb_configs
-            << " Deb configurations" << std::endl;
-  std::cout << "Total expected runs: " << configs.size() * NUM_RUNS
-            << std::endl;
+  LOG_INFO("Configuration breakdown: {} Ackley configurations, {} Deb configurations", 
+           ackley_configs, deb_configs);
+  LOG_INFO("Total expected runs: {}", configs.size() * NUM_RUNS);
 
   // Maximum number of concurrent configurations to run
   constexpr unsigned MAX_CONCURRENT_CONFIGS = 4;
@@ -293,7 +291,7 @@ int main() {
   std::mutex cout_mutex;
 
   // Start background I/O threads
-  std::cout << "Starting I/O worker threads..." << std::endl;
+  LOG_INFO("Starting I/O worker threads...");
 
   // Thread for writing detailed results
   std::thread detailed_writer([&]() {
@@ -409,8 +407,7 @@ int main() {
   // Signal I/O threads to finish
   {
     std::lock_guard lock(cout_mutex);
-    std::cout << "All configurations processed. Waiting for I/O to complete..."
-              << std::endl;
+    LOG_INFO("All configurations processed. Waiting for I/O to complete...");
   }
 
   detailed_queue.done();
@@ -420,9 +417,10 @@ int main() {
   detailed_writer.join();
   summary_writer.join();
 
-  std::cout
-      << "All configurations completed. Results saved to 'results' directory."
-      << std::endl;
+  LOG_INFO("All configurations completed. Results saved to 'results' directory.");
+  
+  // Flush any remaining log messages
+  spdlog::shutdown();
 
   return 0;
 }
