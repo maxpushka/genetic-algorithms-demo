@@ -290,11 +290,9 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
     
     // Find the best solution across all islands
     pagmo::vector_double best_x;
-    double best_f = std::numeric_limits<double>::max();
+    double best_f = std::numeric_limits<double>::lowest();
     if (config.problem_name == "Ackley") {
         best_f = std::numeric_limits<double>::max();
-    } else {
-        best_f = std::numeric_limits<double>::lowest();
     }
     
     double total_fitness = 0.0;
@@ -574,30 +572,30 @@ int main() {
     int config_id = 0;
     
     // Number of runs as specified in the task
-    const unsigned NUM_RUNS = 100; // As required in TASK.md, line 158
+    constexpr unsigned NUM_RUNS = 100; // As required in TASK.md, line 158
     
     // ==============================
     // ACKLEY FUNCTION CONFIGURATIONS
     // ==============================
     
     // Following the task requirements to analyze in order:
-    // 1. N=100, n=1, 2, 3, 5  
+    // 1. N=100, n=1, 2, 3, 5
     // 2. Then repeat for N=200, 300, 400
     
     // Define population sizes to test
-    std::vector<unsigned> population_sizes = {100, 200, 300, 400};
+    constexpr std::array<unsigned, 4> population_sizes = {100, 200, 300, 400};
     
     // Define dimensions to test
-    std::vector<unsigned> dimensions = {1, 2, 3, 5};
+    constexpr std::array dimensions = {1, 2, 3, 5};
     
     // Crossover types (single point and uniform)
-    std::vector crossover_types = {"single", "sbx"};
+    constexpr std::array crossover_types = {"single", "sbx"};
     
     // Crossover probabilities (as per the task)
-    std::vector crossover_probs = {0.0, 0.6, 0.8, 1.0};
+    constexpr std::array crossover_probs = {0.0, 0.6, 0.8, 1.0};
     
     // Mutation probabilities (as per the task, for different dimensions)
-    std::map<unsigned, std::vector<double>> mutation_probs_by_dim = {
+    const std::map<unsigned, std::array<double, 3>> mutation_probs_by_dim = {
         {1, {0.0, 0.001, 0.01}},      // n=1
         {2, {0.0, 0.0005, 0.005}},    // n=2
         {3, {0.0, 0.0003, 0.003}},    // n=3
@@ -607,7 +605,7 @@ int main() {
     // Selection method (using tournament as it's supported by PaGMO)
     // Ideally we would implement all the selection methods from the task,
     // but for this demo we'll use tournament which PaGMO supports
-    std::string selection_method = "tournament";
+    constexpr auto selection_method = "tournament";
     
     // For each population size and dimension combination
     for (unsigned pop_size : population_sizes) {
