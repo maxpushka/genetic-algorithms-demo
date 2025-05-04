@@ -488,6 +488,8 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
   // Count successful runs
   std::vector<run_stats> successful_runs;
   std::vector<run_stats> failed_runs;
+  successful_runs.reserve(runs.size());
+  failed_runs.reserve(runs.size());
 
   for (const auto &run : runs) {
     if (run.is_successful) {
@@ -503,6 +505,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
   if (!successful_runs.empty()) {
     // Calculate min, max, avg for iterations
     std::vector<double> iterations_vec;
+    iterations_vec.reserve(successful_runs.size());
     agg.min_iterations = successful_runs[0].iterations;
     agg.max_iterations = successful_runs[0].iterations;
 
@@ -518,6 +521,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
 
     // Calculate min, max, avg for fitness evaluations
     std::vector<double> evals_vec;
+    evals_vec.reserve(successful_runs.size());
     agg.min_evals = successful_runs[0].fitness_evals;
     agg.max_evals = successful_runs[0].fitness_evals;
 
@@ -547,6 +551,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
 
     // Calculate min, max, avg for f_max
     std::vector<double> f_max_vec;
+    f_max_vec.reserve(successful_runs.size());
     agg.min_f_max = successful_runs[0].f_max;
     agg.max_f_max = successful_runs[0].f_max;
 
@@ -561,6 +566,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
 
     // Calculate min, max, avg for f_avg
     std::vector<double> f_avg_vec;
+    f_avg_vec.reserve(successful_runs.size());
     agg.min_f_avg = successful_runs[0].f_avg;
     agg.max_f_avg = successful_runs[0].f_avg;
 
@@ -575,6 +581,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
 
     // Calculate min, max, avg for convergence
     std::vector<double> conv_vec;
+    conv_vec.reserve(successful_runs.size());
     agg.min_convergence = successful_runs[0].convergence;
     agg.max_convergence = successful_runs[0].convergence;
 
@@ -590,6 +597,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
 
     // Calculate min, max, avg for peak accuracy
     std::vector<double> pa_vec;
+    pa_vec.reserve(successful_runs.size());
     agg.min_peak_accuracy = successful_runs[0].peak_accuracy;
     agg.max_peak_accuracy = successful_runs[0].peak_accuracy;
 
@@ -606,6 +614,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
 
     // Calculate min, max, avg for distance accuracy
     std::vector<double> da_vec;
+    da_vec.reserve(successful_runs.size());
     agg.min_dist_accuracy = successful_runs[0].distance_accuracy;
     agg.max_dist_accuracy = successful_runs[0].distance_accuracy;
 
@@ -625,6 +634,7 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
   if (!failed_runs.empty()) {
     // Calculate min, max, avg for iterations (failed runs)
     std::vector<double> iterations_f_vec;
+    iterations_f_vec.reserve(failed_runs.size());
     agg.min_iterations_f = failed_runs[0].iterations;
     agg.max_iterations_f = failed_runs[0].iterations;
 
