@@ -46,7 +46,7 @@ std::vector<ga_config> create_configurations() {
   constexpr std::array encoding_methods = {
       EncodingMethod::StandardBinary,
       EncodingMethod::GrayCode,
-      EncodingMethod::Discretization
+      // EncodingMethod::Discretization // TODO: uncomment
   };
 
   // Crossover types (as per TASK.md)
@@ -56,7 +56,7 @@ std::vector<ga_config> create_configurations() {
   };
 
   // Crossover probabilities (as per TASK.md)
-  constexpr std::array crossover_probs = {0.0, 0.6, 0.8, 1.0};
+  constexpr std::array crossover_probs = {/*0.0,*/ 0.6, 0.8, 1.0}; // TODO: uncomment
 
   // Mutation probabilities (as per TASK.md, for different dimensions)
   std::map<unsigned, std::array<double, 3>> mutation_probs_by_dim = {
@@ -68,7 +68,7 @@ std::vector<ga_config> create_configurations() {
 
   // Mutation types
   constexpr std::array mutation_types = {
-      MutationType::Polynomial,  // Using polynomial mutation for density-based mutation
+      // MutationType::Polynomial,  // Using polynomial mutation for density-based mutation // TODO: uncomment
       MutationType::Density      // Explicit density-based mutation
   };
 
@@ -120,6 +120,10 @@ std::vector<ga_config> create_configurations() {
       ProblemType::Deb
   };
 
+  constexpr unsigned island_count = 16;
+  constexpr unsigned generations_per_evolution = 1000; // TODO: replace 1_000_000
+  constexpr unsigned total_evolutions = 10;
+
   // Loop through all combinations of parameters for all problems
   for (const auto problem_type : problem_types) {
     for (auto pop_size : population_sizes) {
@@ -141,9 +145,9 @@ std::vector<ga_config> create_configurations() {
                         config.problem_type = problem_type;
                         config.dimension = dim;
                         config.population_size = pop_size;
-                        config.island_count = 16;  // Using 16 islands for parallelization
-                        config.generations_per_evolution = 50;
-                        config.total_evolutions = 10;
+                        config.island_count = island_count;
+                        config.generations_per_evolution = generations_per_evolution;
+                        config.total_evolutions = total_evolutions;
                         
                         config.encoding_method = encoding_method;
                         config.crossover_type = crossover_type;
@@ -169,9 +173,9 @@ std::vector<ga_config> create_configurations() {
                             config.problem_type = problem_type;
                             config.dimension = dim;
                             config.population_size = pop_size;
-                            config.island_count = 16;  // Using 16 islands for parallelization
-                            config.generations_per_evolution = 50;
-                            config.total_evolutions = 10;
+                            config.island_count = island_count;
+                            config.generations_per_evolution = generations_per_evolution;
+                            config.total_evolutions = total_evolutions;
                             
                             // Default selection method for steady-state
                             config.selection_method = SelectionMethod::Tournament;
