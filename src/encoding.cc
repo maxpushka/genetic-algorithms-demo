@@ -100,12 +100,12 @@ std::string encode_real_to_discretization(double value, double min, double max,
                                          unsigned dimension) {
   // Calculate the number of bits needed for each dimension
   // For n=1, we need 10 bits as specified in TASK.md
-  const unsigned bits_per_dimension = 10;
+  constexpr unsigned bits_per_dimension = 10;
   const unsigned total_bits = bits_per_dimension * dimension;
   
   // Number of discrete points (for 2 decimal places precision)
   // For a range [min, max], we need (max-min)*100+1 points
-  const double precision = 0.01; // 2 decimal places
+  constexpr double precision = 0.01; // 2 decimal places
   const int num_points = static_cast<int>((max - min) / precision) + 1;
   
   // Scale value to discretized point index

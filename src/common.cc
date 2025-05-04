@@ -205,8 +205,7 @@ ReplacementMethod replacement_from_string(const std::string& str) {
 std::string ga_config::csv_header() {
   return "Config_ID,Problem,Dimension,Population_Size,Islands,"
          "Generations_Per_Evolution,Total_Evolutions,"
-         "Encoding_Method,Crossover_Type,Crossover_Prob,Mutation_Type,Mutation_"
-         "Prob,"
+         "Encoding_Method,Crossover_Type,Crossover_Prob,Mutation_Type,Mutation_Prob,"
          "Selection_Method,Reproduction_Type,Generation_Gap,Parent_Selection,"
          "Replacement";
 }

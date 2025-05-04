@@ -314,8 +314,7 @@ int main() {
     while (!summary_queue.is_done() || !summary_queue.empty()) {
       if (summary_queue.try_pop(entry)) {
         // Write to CSV without contention
-        summary_csv << entry.config_id << ","
-                    << entry.config.to_csv(entry.config_id) << ","
+        summary_csv << entry.config.to_csv(entry.config_id) << ","
                     << entry.stats.to_csv() << std::endl;
       } else {
         // Small sleep to prevent busy waiting
