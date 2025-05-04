@@ -1925,9 +1925,16 @@ int main() {
     std::vector<ga_config> demo_configs;
 
     // Select a small representative sample of configurations
-    for (unsigned i = 0; i < std::min(static_cast<size_t>(8), configs.size());
-         i += configs.size() / 8) {
-      demo_configs.push_back(configs[i]);
+    if (constexpr size_t min_demo_size = 8; total_configs <= min_demo_size) {
+      // If we have 8 or fewer configs, use all of them
+      demo_configs = configs;
+    } else {
+      // For larger config sets, select a representative sample
+      size_t step = total_configs / min_demo_size;
+      for (unsigned i = 0; i < std::min(min_demo_size, total_configs); i++) {
+        size_t idx = std::min(i * step, total_configs - 1);
+        demo_configs.push_back(configs[idx]);
+      }
     }
 
     std::cout << "Demo mode: Running " << demo_configs.size()
