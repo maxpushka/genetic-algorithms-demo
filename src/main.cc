@@ -3,114 +3,23 @@
 #include <vector>
 #include <string>
 #include <cmath>
-#include <random>
+#include <iomanip>
 #include <algorithm>
 #include <chrono>
-#include <iomanip>
-#include <bitset>
 
 #include <pagmo/algorithm.hpp>
 #include <pagmo/algorithms/sga.hpp>
 #include <pagmo/archipelago.hpp>
+#include <pagmo/problems/ackley.hpp>
 #include <pagmo/problem.hpp>
 #include <pagmo/types.hpp>
 #include <pagmo/io.hpp>
 
-// Constants
-constexpr int NUM_RUNS = 10; // Reduced for demonstration (should be 100 for full tests)
-constexpr double DELTA = 0.01; // Fitness threshold for success
-constexpr double SIGMA = 0.01; // Distance threshold for success
-
-using namespace pagmo;
-
-// Binary encoding utilities
-std::vector<bool> to_binary(double value, double min_val, double max_val, int num_bits) {
-    // Scale to [0, 2^num_bits - 1]
-    double scaled = (value - min_val) / (max_val - min_val) * ((1 << num_bits) - 1);
-    int int_val = static_cast<int>(scaled);
-    
-    std::vector<bool> result(num_bits);
-    for (int i = 0; i < num_bits; ++i) {
-        result[num_bits - 1 - i] = (int_val & (1 << i)) != 0;
-    }
-    return result;
-}
-
-double from_binary(const std::vector<bool>& binary, double min_val, double max_val) {
-    int int_val = 0;
-    for (size_t i = 0; i < binary.size(); ++i) {
-        if (binary[i]) {
-            int_val |= (1 << (binary.size() - 1 - i));
-        }
-    }
-    
-    // Scale back to [min_val, max_val]
-    double scaled = min_val + (int_val * (max_val - min_val)) / ((1 << binary.size()) - 1);
-    return scaled;
-}
-
-// Gray code utilities
-std::vector<bool> to_gray(const std::vector<bool>& binary) {
-    std::vector<bool> gray(binary.size());
-    gray[0] = binary[0];
-    for (size_t i = 1; i < binary.size(); ++i) {
-        gray[i] = binary[i-1] ^ binary[i];
-    }
-    return gray;
-}
-
-std::vector<bool> from_gray(const std::vector<bool>& gray) {
-    std::vector<bool> binary(gray.size());
-    binary[0] = gray[0];
-    for (size_t i = 1; i < gray.size(); ++i) {
-        binary[i] = binary[i-1] ^ gray[i];
-    }
-    return binary;
-}
-
-// Ackley function (to be maximized, so we negate the standard minimization form)
-struct ackley_func {
-    ackley_func(unsigned dim = 1) : m_dim(dim) {}
-    
-    vector_double fitness(const vector_double &x) const {
-        double sum1 = 0.0;
-        double sum2 = 0.0;
-        
-        for (decltype(m_dim) i = 0u; i < m_dim; ++i) {
-            sum1 += x[i] * x[i];
-            sum2 += std::cos(2.0 * M_PI * x[i]);
-        }
-        
-        sum1 = -0.2 * std::sqrt(sum1 / m_dim);
-        sum2 = sum2 / m_dim;
-        
-        // Original Ackley is to be minimized, we maximize (21 - ackley)
-        double result = 20.0 * std::exp(sum1) + std::exp(sum2);
-        return {result};
-    }
-    
-    std::pair<vector_double, vector_double> get_bounds() const {
-        vector_double lb(m_dim, -5.12);
-        vector_double ub(m_dim, 5.12);
-        return {lb, ub};
-    }
-    
-    vector_double get_optimal_params() const {
-        return vector_double(m_dim, 0.0);
-    }
-    
-    double get_optimal_fitness() const {
-        return 21.0;
-    }
-    
-    unsigned m_dim;
-};
-
-// Deb function (to be maximized)
+// Custom Deb function implementation
 struct deb_func {
     deb_func(unsigned dim = 1) : m_dim(dim) {}
     
-    vector_double fitness(const vector_double &x) const {
+    pagmo::vector_double fitness(const pagmo::vector_double &x) const {
         double result = 0.0;
         
         for (decltype(m_dim) i = 0u; i < m_dim; ++i) {
@@ -120,227 +29,39 @@ struct deb_func {
             result += term1 * term2;
         }
         
-        return {result};
+        // We're maximizing
+        return {-result};
     }
     
-    std::pair<vector_double, vector_double> get_bounds() const {
-        vector_double lb(m_dim, 0.0);
-        vector_double ub(m_dim, 1.023);
+    std::pair<pagmo::vector_double, pagmo::vector_double> get_bounds() const {
+        pagmo::vector_double lb(m_dim, 0.0);
+        pagmo::vector_double ub(m_dim, 1.023);
         return {lb, ub};
     }
     
-    vector_double get_optimal_params() const {
-        return vector_double(m_dim, 0.1);
+    // Additional methods to help with analysis
+    pagmo::vector_double get_optimal_point() const {
+        return pagmo::vector_double(m_dim, 0.1);
     }
     
     double get_optimal_fitness() const {
-        return m_dim;  // Each dimension contributes 1.0 at its optimum
+        return -m_dim; // Each dimension contributes -1.0 at optimum
+    }
+    
+    std::string get_name() const {
+        return "Deb's function";
     }
     
     unsigned m_dim;
 };
 
-// Binary-encoded Ackley function
-struct binary_ackley_func {
-    binary_ackley_func(unsigned dim = 1, unsigned bits_per_dim = 10, bool use_gray = false)
-        : m_dim(dim), m_bits_per_dim(bits_per_dim), m_use_gray(use_gray), m_fitness_count(0) {}
-    
-    vector_double fitness(const vector_double &x) const {
-        // Track number of fitness evaluations
-        ++m_fitness_count;
-        
-        // Decode binary representation
-        vector_double decoded = decode(x);
-        
-        // Use the base Ackley function for evaluation
-        ackley_func base_func(m_dim);
-        return base_func.fitness(decoded);
-    }
-    
-    vector_double decode(const vector_double &x) const {
-        vector_double result(m_dim);
-        auto bounds = get_base_bounds();
-        
-        for (unsigned i = 0; i < m_dim; ++i) {
-            // Extract the bits for this dimension
-            std::vector<bool> bits(m_bits_per_dim);
-            for (unsigned j = 0; j < m_bits_per_dim; ++j) {
-                bits[j] = x[i * m_bits_per_dim + j] > 0.5;
-            }
-            
-            // Convert from Gray code if needed
-            if (m_use_gray) {
-                bits = from_gray(bits);
-            }
-            
-            // Convert to real value
-            result[i] = from_binary(bits, bounds.first[i], bounds.second[i]);
-        }
-        
-        return result;
-    }
-    
-    std::pair<vector_double, vector_double> get_bounds() const {
-        // Binary encoding: 0 or 1 for each bit
-        vector_double lb(m_dim * m_bits_per_dim, 0.0);
-        vector_double ub(m_dim * m_bits_per_dim, 1.0);
-        return {lb, ub};
-    }
-    
-    std::pair<vector_double, vector_double> get_base_bounds() const {
-        ackley_func base_func(m_dim);
-        return base_func.get_bounds();
-    }
-    
-    vector_double get_optimal_params() const {
-        // Get optimal params in real space
-        ackley_func base_func(m_dim);
-        auto opt_real = base_func.get_optimal_params();
-        auto bounds = base_func.get_bounds();
-        
-        // Encode to binary space
-        vector_double result(m_dim * m_bits_per_dim);
-        for (unsigned i = 0; i < m_dim; ++i) {
-            std::vector<bool> bits = to_binary(opt_real[i], bounds.first[i], bounds.second[i], m_bits_per_dim);
-            
-            // Convert to Gray code if needed
-            if (m_use_gray) {
-                bits = to_gray(bits);
-            }
-            
-            // Store in result vector (as real values 0.0 or 1.0)
-            for (unsigned j = 0; j < m_bits_per_dim; ++j) {
-                result[i * m_bits_per_dim + j] = bits[j] ? 1.0 : 0.0;
-            }
-        }
-        
-        return result;
-    }
-    
-    double get_optimal_fitness() const {
-        ackley_func base_func(m_dim);
-        return base_func.get_optimal_fitness();
-    }
-    
-    // Getters for stats
-    unsigned get_fitness_count() const {
-        return m_fitness_count;
-    }
-    
-    void reset_fitness_count() const {
-        m_fitness_count = 0;
-    }
-    
-    unsigned m_dim;
-    unsigned m_bits_per_dim;
-    bool m_use_gray;
-    mutable unsigned m_fitness_count;
-};
-
-// Binary-encoded Deb function
-struct binary_deb_func {
-    binary_deb_func(unsigned dim = 1, unsigned bits_per_dim = 10, bool use_gray = false)
-        : m_dim(dim), m_bits_per_dim(bits_per_dim), m_use_gray(use_gray), m_fitness_count(0) {}
-    
-    vector_double fitness(const vector_double &x) const {
-        // Track number of fitness evaluations
-        ++m_fitness_count;
-        
-        // Decode binary representation
-        vector_double decoded = decode(x);
-        
-        // Use the base Deb function for evaluation
-        deb_func base_func(m_dim);
-        return base_func.fitness(decoded);
-    }
-    
-    vector_double decode(const vector_double &x) const {
-        vector_double result(m_dim);
-        auto bounds = get_base_bounds();
-        
-        for (unsigned i = 0; i < m_dim; ++i) {
-            // Extract the bits for this dimension
-            std::vector<bool> bits(m_bits_per_dim);
-            for (unsigned j = 0; j < m_bits_per_dim; ++j) {
-                bits[j] = x[i * m_bits_per_dim + j] > 0.5;
-            }
-            
-            // Convert from Gray code if needed
-            if (m_use_gray) {
-                bits = from_gray(bits);
-            }
-            
-            // Convert to real value
-            result[i] = from_binary(bits, bounds.first[i], bounds.second[i]);
-        }
-        
-        return result;
-    }
-    
-    std::pair<vector_double, vector_double> get_bounds() const {
-        // Binary encoding: 0 or 1 for each bit
-        vector_double lb(m_dim * m_bits_per_dim, 0.0);
-        vector_double ub(m_dim * m_bits_per_dim, 1.0);
-        return {lb, ub};
-    }
-    
-    std::pair<vector_double, vector_double> get_base_bounds() const {
-        deb_func base_func(m_dim);
-        return base_func.get_bounds();
-    }
-    
-    vector_double get_optimal_params() const {
-        // Get optimal params in real space
-        deb_func base_func(m_dim);
-        auto opt_real = base_func.get_optimal_params();
-        auto bounds = base_func.get_bounds();
-        
-        // Encode to binary space
-        vector_double result(m_dim * m_bits_per_dim);
-        for (unsigned i = 0; i < m_dim; ++i) {
-            std::vector<bool> bits = to_binary(opt_real[i], bounds.first[i], bounds.second[i], m_bits_per_dim);
-            
-            // Convert to Gray code if needed
-            if (m_use_gray) {
-                bits = to_gray(bits);
-            }
-            
-            // Store in result vector (as real values 0.0 or 1.0)
-            for (unsigned j = 0; j < m_bits_per_dim; ++j) {
-                result[i * m_bits_per_dim + j] = bits[j] ? 1.0 : 0.0;
-            }
-        }
-        
-        return result;
-    }
-    
-    double get_optimal_fitness() const {
-        deb_func base_func(m_dim);
-        return base_func.get_optimal_fitness();
-    }
-    
-    // Getters for stats
-    unsigned get_fitness_count() const {
-        return m_fitness_count;
-    }
-    
-    void reset_fitness_count() const {
-        m_fitness_count = 0;
-    }
-    
-    unsigned m_dim;
-    unsigned m_bits_per_dim;
-    bool m_use_gray;
-    mutable unsigned m_fitness_count;
-};
-
-// Statistics structure
+// Utility for tracking statistics
 struct run_stats {
     bool is_successful = false;
     unsigned iterations = 0;
     unsigned fitness_evals = 0;
     double f_max = 0.0;
-    vector_double x_max;
+    pagmo::vector_double x_max;
     double f_avg = 0.0;
     double convergence = 0.0;
     double peak_accuracy = 0.0;
@@ -349,6 +70,7 @@ struct run_stats {
     // For CSV output
     std::string to_csv() const {
         std::stringstream ss;
+        ss << std::fixed << std::setprecision(6);
         ss << (is_successful ? 1 : 0) << ",";
         ss << iterations << ",";
         ss << fitness_evals << ",";
@@ -415,8 +137,6 @@ struct aggregate_stats {
     double avg_iterations_f = 0.0;
     double std_iterations_f = 0.0;
     
-    // Additional failed stats would go here...
-    
     // For CSV header
     static std::string csv_header() {
         return "Success_Rate,"
@@ -456,29 +176,24 @@ struct ga_config {
     // Problem parameters
     std::string problem_name;
     unsigned dimension;
-    bool use_gray_code;
-    unsigned bits_per_dim;
     
     // GA parameters
     unsigned population_size;
+    unsigned island_count;
+    unsigned generations_per_evolution;
+    unsigned total_evolutions;
+    
     double crossover_prob;
     double mutation_prob;
     std::string selection_method;
     std::string crossover_type;
-    
-    // For generational GA
-    bool generational = true;
-    
-    // For steady-state GA
-    double generation_gap = 0.1;
-    std::string parent_selection = "Elite";
-    std::string survivor_selection = "WorstComma";
+    std::string mutation_type;
     
     // For CSV header
     static std::string csv_header() {
-        return "Config_ID,Problem,Dimension,Encoding,Population_Size,"
-               "Crossover_Type,Crossover_Prob,Mutation_Prob,Selection_Method,"
-               "Generational,Generation_Gap,Parent_Selection,Survivor_Selection";
+        return "Config_ID,Problem,Dimension,Population_Size,Islands,"
+               "Generations_Per_Evolution,Total_Evolutions,"
+               "Crossover_Type,Crossover_Prob,Mutation_Type,Mutation_Prob,Selection_Method";
     }
     
     // For CSV output
@@ -487,23 +202,22 @@ struct ga_config {
         ss << config_id << ",";
         ss << problem_name << ",";
         ss << dimension << ",";
-        ss << (use_gray_code ? "Gray" : "Binary") << ",";
         ss << population_size << ",";
+        ss << island_count << ",";
+        ss << generations_per_evolution << ",";
+        ss << total_evolutions << ",";
         ss << crossover_type << ",";
         ss << crossover_prob << ",";
+        ss << mutation_type << ",";
         ss << mutation_prob << ",";
-        ss << selection_method << ",";
-        ss << (generational ? "Generational" : "Steady-state") << ",";
-        ss << generation_gap << ",";
-        ss << parent_selection << ",";
-        ss << survivor_selection;
+        ss << selection_method;
         
         return ss.str();
     }
 };
 
 // Function to calculate Euclidean distance
-double euclidean_distance(const vector_double &a, const vector_double &b) {
+double euclidean_distance(const pagmo::vector_double &a, const pagmo::vector_double &b) {
     double sum = 0.0;
     for (size_t i = 0; i < a.size(); ++i) {
         double diff = a[i] - b[i];
@@ -514,7 +228,7 @@ double euclidean_distance(const vector_double &a, const vector_double &b) {
 
 // Function to calculate standard deviation
 double calculate_std_dev(const std::vector<double> &values, double avg) {
-    if (values.empty()) return 0.0;
+    if (values.empty() || values.size() == 1) return 0.0;
     
     double sum_squared_diff = 0.0;
     for (double value : values) {
@@ -522,140 +236,154 @@ double calculate_std_dev(const std::vector<double> &values, double avg) {
         sum_squared_diff += diff * diff;
     }
     
-    return std::sqrt(sum_squared_diff / values.size());
+    return std::sqrt(sum_squared_diff / (values.size() - 1));
 }
+
+// Constants for determining successful runs
+constexpr double DELTA = 0.01; // Fitness threshold for success
+constexpr double SIGMA = 0.01; // Distance threshold for success
 
 // Function to run a single GA experiment with given parameters
 run_stats run_experiment(const ga_config &config, unsigned seed) {
     run_stats stats;
     
-    // Set up problem
-    std::unique_ptr<problem> prob;
+    // Create the problem
+    pagmo::problem prob;
     if (config.problem_name == "Ackley") {
-        prob = std::make_unique<problem>(binary_ackley_func(config.dimension, config.bits_per_dim, config.use_gray_code));
+        // We negate since PaGMO minimizes by default and we want to maximize
+        prob = pagmo::problem{pagmo::ackley{config.dimension}};
+        // Set to minimization problem
     } else if (config.problem_name == "Deb") {
-        prob = std::make_unique<problem>(binary_deb_func(config.dimension, config.bits_per_dim, config.use_gray_code));
+        prob = pagmo::problem{deb_func{config.dimension}};
     } else {
         throw std::runtime_error("Unknown problem: " + config.problem_name);
     }
     
-    // Track fitness evaluations - store a pointer to the UDP
-    binary_ackley_func *ackley_udp = nullptr;
-    binary_deb_func *deb_udp = nullptr;
-    
-    if (config.problem_name == "Ackley") {
-        ackley_udp = prob->extract<binary_ackley_func>();
-        ackley_udp->reset_fitness_count();
-    } else {
-        deb_udp = prob->extract<binary_deb_func>();
-        deb_udp->reset_fitness_count();
-    }
-    
     // Set up algorithm
-    std::unique_ptr<algorithm> algo;
+    pagmo::algorithm algo{pagmo::sga(
+        config.generations_per_evolution,  // Generations per evolution
+        config.crossover_prob,             // Crossover probability
+        1.0,                               // eta_c (distribution index for SBX)
+        config.mutation_prob,              // Mutation probability
+        1.0,                               // param_m (mutation parameter)
+        2,                                 // param_s (selection parameter - tournament size)
+        config.crossover_type,             // Crossover type
+        config.mutation_type,              // Mutation type
+        config.selection_method,           // Selection type
+        seed                               // Random seed
+    )};
     
-    // Set up selection method
-    unsigned tournament_size = 2;  // Default to tournament size 2
-    if (config.selection_method == "TournWITH_t=2") {
-        tournament_size = 2;
-    } else if (config.selection_method == "TournWITH_t=4") {
-        tournament_size = 4;
+    // Set up archipelago
+    pagmo::archipelago archi{config.island_count, algo, prob, config.population_size, seed};
+    
+    // Run the evolutions
+    auto start_time = std::chrono::high_resolution_clock::now();
+    for (unsigned i = 0; i < config.total_evolutions; ++i) {
+        archi.evolve();
+        archi.wait_check();
     }
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
     
-    // Generational GA
-    algo = std::make_unique<algorithm>(sga(
-        1000000, // Max generations
-        config.crossover_prob, 
-        1.0, // eta_c - distribution index for SBX crossover
-        config.mutation_prob,
-        1.0, // eta_m - distribution index for polynomial mutation
-        tournament_size,
-        config.crossover_type, // SBX, exponential, single point
-        "polynomial", // Mutation type
-        config.selection_method, // Selection type
-        seed // Random seed
-    ));
+    // Collect statistics
+    stats.iterations = config.generations_per_evolution * config.total_evolutions;
     
-    // Create population with the specified size
-    population pop(*prob, config.population_size, seed);
-    
-    // Run the algorithm
-    pop = algo->evolve(pop);
-    
-    // Extract results and compute statistics
-    stats.iterations = algo->extract<sga>()->get_log().size();
-    
-    // Get fitness evaluation count
+    // Find the best solution across all islands
+    pagmo::vector_double best_x;
+    double best_f = std::numeric_limits<double>::max();
     if (config.problem_name == "Ackley") {
-        stats.fitness_evals = ackley_udp->get_fitness_count();
+        best_f = std::numeric_limits<double>::max();
     } else {
-        stats.fitness_evals = deb_udp->get_fitness_count();
+        best_f = std::numeric_limits<double>::lowest();
     }
     
-    // Get the best solution
-    auto champion_x_bin = pop.champion_x();
-    auto champion_f = pop.champion_f()[0];
-    
-    // Decode binary solution to real space
-    vector_double champion_x_real;
-    if (config.problem_name == "Ackley") {
-        champion_x_real = ackley_udp->decode(champion_x_bin);
-    } else {
-        champion_x_real = deb_udp->decode(champion_x_bin);
-    }
-    
-    stats.f_max = champion_f;
-    stats.x_max = champion_x_real;
-    
-    // Calculate population average fitness
     double total_fitness = 0.0;
-    for (unsigned i = 0; i < pop.size(); ++i) {
-        total_fitness += pop.get_f()[i][0];
-    }
-    stats.f_avg = total_fitness / pop.size();
+    int total_individuals = 0;
     
-    // Calculate convergence (population homogeneity)
-    // Simplified: just measure average distance from champion
-    double total_distance = 0.0;
-    for (unsigned i = 0; i < pop.size(); ++i) {
-        auto individual = pop.get_x()[i];
-        vector_double individual_real;
+    // Get results from all islands and find the best
+    for (const auto &isl : archi) {
+        const auto &pop = isl.get_population();
         
-        if (config.problem_name == "Ackley") {
-            individual_real = ackley_udp->decode(individual);
-        } else {
-            individual_real = deb_udp->decode(individual);
+        // Calculate average fitness for this island
+        for (pagmo::population::size_type i = 0; i < pop.size(); ++i) {
+            double fitness;
+            if (config.problem_name == "Ackley") {
+                fitness = pop.get_f()[i][0]; // Minimizing
+            } else {
+                fitness = -pop.get_f()[i][0]; // Negating since Deb is set up for minimization
+            }
+            total_fitness += fitness;
+            total_individuals++;
         }
         
-        total_distance += euclidean_distance(champion_x_real, individual_real);
+        // Check if this island has the best solution
+        if (config.problem_name == "Ackley") {
+            // For Ackley, lower is better (minimization)
+            if (pop.champion_f()[0] < best_f) {
+                best_f = pop.champion_f()[0];
+                best_x = pop.champion_x();
+            }
+        } else {
+            // For Deb, higher is better (maximization despite problem setup)
+            if (-pop.champion_f()[0] > best_f) {
+                best_f = -pop.champion_f()[0];
+                best_x = pop.champion_x();
+            }
+        }
     }
-    stats.convergence = 1.0 - (total_distance / (pop.size() * config.dimension));
+    
+    // Calculate average fitness across all individuals
+    stats.f_avg = total_fitness / total_individuals;
+    
+    // Store the best solution
+    stats.f_max = best_f;
+    stats.x_max = best_x;
+    
+    // Calculate convergence (population homogeneity)
+    // We measure the average distance from individuals to the best solution
+    double total_distance = 0.0;
+    for (const auto &isl : archi) {
+        const auto &pop = isl.get_population();
+        for (pagmo::population::size_type i = 0; i < pop.size(); ++i) {
+            total_distance += euclidean_distance(pop.get_x()[i], best_x);
+        }
+    }
+    stats.convergence = 1.0 - (total_distance / (total_individuals * config.dimension));
     
     // Get optimal solution for comparison
-    vector_double optimal_x;
+    pagmo::vector_double optimal_x;
     double optimal_f;
     
     if (config.problem_name == "Ackley") {
-        optimal_x = ackley_udp->get_base_bounds().first; // Initialize with correct size
-        for (size_t i = 0; i < optimal_x.size(); ++i) {
-            optimal_x[i] = 0.0; // Ackley optimum is at origin
-        }
-        optimal_f = ackley_udp->get_optimal_fitness();
+        // Ackley optimum is at the origin (0,0,...,0) with f=0
+        optimal_x = pagmo::vector_double(config.dimension, 0.0);
+        optimal_f = 0.0;
     } else {
-        optimal_x = deb_udp->get_base_bounds().first; // Initialize with correct size
-        for (size_t i = 0; i < optimal_x.size(); ++i) {
-            optimal_x[i] = 0.1; // Deb optimum is at 0.1
-        }
-        optimal_f = deb_udp->get_optimal_fitness();
+        // Deb optimum is at (0.1, 0.1, ..., 0.1) with f=dimension
+        optimal_x = pagmo::vector_double(config.dimension, 0.1);
+        optimal_f = config.dimension;
     }
     
     // Calculate peak accuracy and distance accuracy
-    stats.peak_accuracy = champion_f / optimal_f;
-    stats.distance_accuracy = 1.0 / (1.0 + euclidean_distance(champion_x_real, optimal_x));
+    if (config.problem_name == "Ackley") {
+        // For Ackley, f_optimal = 0 (minimum), so we calculate differently
+        stats.peak_accuracy = 1.0 / (1.0 + std::abs(best_f - optimal_f));
+    } else {
+        stats.peak_accuracy = best_f / optimal_f;
+    }
+    stats.distance_accuracy = 1.0 / (1.0 + euclidean_distance(best_x, optimal_x));
     
     // Determine if run was successful
-    stats.is_successful = (std::abs(champion_f - optimal_f) <= DELTA * optimal_f) && 
-                         (euclidean_distance(champion_x_real, optimal_x) <= SIGMA);
+    if (config.problem_name == "Ackley") {
+        stats.is_successful = (std::abs(best_f - optimal_f) <= DELTA) && 
+                             (euclidean_distance(best_x, optimal_x) <= SIGMA);
+    } else {
+        stats.is_successful = (std::abs(best_f - optimal_f) <= DELTA * optimal_f) && 
+                             (euclidean_distance(best_x, optimal_x) <= SIGMA);
+    }
+    
+    // Approximate fitness evaluations (population_size * islands * generations)
+    stats.fitness_evals = config.population_size * config.island_count * config.generations_per_evolution * config.total_evolutions;
     
     return stats;
 }
@@ -786,23 +514,22 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
         }
         agg.avg_iterations_f = std::accumulate(iterations_f_vec.begin(), iterations_f_vec.end(), 0.0) / iterations_f_vec.size();
         agg.std_iterations_f = calculate_std_dev(iterations_f_vec, agg.avg_iterations_f);
-        
-        // Additional failed run stats would be calculated here
     }
     
     return agg;
 }
 
 // Function to run a set of experiments with a given configuration
-void run_config(int config_id, const ga_config &config, std::ofstream &detailed_csv, std::ofstream &summary_csv) {
+void run_config(int config_id, const ga_config &config, std::ofstream &detailed_csv, std::ofstream &summary_csv, unsigned num_runs) {
     std::cout << "Running config " << config_id << ": " 
               << config.problem_name << ", dim=" << config.dimension 
-              << ", pop=" << config.population_size << std::endl;
+              << ", pop=" << config.population_size
+              << ", islands=" << config.island_count << std::endl;
     
     std::vector<run_stats> runs;
     
-    for (int run = 0; run < NUM_RUNS; ++run) {
-        std::cout << "  Run " << run + 1 << "/" << NUM_RUNS << "..." << std::flush;
+    for (unsigned run = 0; run < num_runs; ++run) {
+        std::cout << "  Run " << run + 1 << "/" << num_runs << "..." << std::flush;
         
         // Use a different seed for each run
         unsigned seed = config_id * 1000 + run;
@@ -846,62 +573,64 @@ int main() {
     std::vector<ga_config> configs;
     int config_id = 0;
     
-    // For demonstration, we're using a limited set of configurations
-    // Reduced test configuration for the Ackley function
-    {
-        ga_config base_config;
-        base_config.problem_name = "Ackley";
-        base_config.dimension = 1;
-        base_config.bits_per_dim = 10;
-        base_config.population_size = 100;
-        
-        // Only two configurations for demonstration
-        // 1. Binary encoding, single-point crossover
-        base_config.use_gray_code = false;
-        base_config.crossover_type = "single"; // "single" is the correct name in pagmo/sga
-        base_config.crossover_prob = 0.8;
-        base_config.mutation_prob = 0.01;
-        base_config.selection_method = "tournament";
-        base_config.generational = true;
-        
-        configs.push_back(base_config);
-        config_id++;
-        
-        // 2. Gray code encoding, SBX crossover
-        base_config.use_gray_code = true;
-        base_config.crossover_type = "sbx";
-        base_config.crossover_prob = 0.8;
-        base_config.mutation_prob = 0.01;
-        base_config.selection_method = "tournament";
-        base_config.generational = true;
-        
-        configs.push_back(base_config);
-        config_id++;
+    // For demonstration purposes, we'll run a limited set of configurations
+    const unsigned NUM_RUNS = 10; // We'd normally use 100 for full tests
+    
+    // Test configurations for Ackley function
+    for (unsigned dim : {1, 2}) {
+        for (unsigned pop_size : {100}) {
+            for (unsigned islands : {8, 16}) {
+                ga_config config;
+                config.problem_name = "Ackley";
+                config.dimension = dim;
+                config.population_size = pop_size;
+                config.island_count = islands;
+                config.generations_per_evolution = 50;
+                config.total_evolutions = 10;
+                
+                // Try different crossover and mutation settings
+                for (const auto &crossover : {"single", "sbx"}) {
+                    for (double cr : {0.7, 0.9}) {
+                        for (const auto &mutation : {"gaussian", "polynomial"}) {
+                            for (double m : {0.01, 0.05}) {
+                                config.crossover_type = crossover;
+                                config.crossover_prob = cr;
+                                config.mutation_type = mutation;
+                                config.mutation_prob = m;
+                                config.selection_method = "tournament";
+                                
+                                configs.push_back(config);
+                                config_id++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     
-    // Also test the Deb function
+    // Test configurations for Deb function
     {
-        ga_config base_config;
-        base_config.problem_name = "Deb";
-        base_config.dimension = 1;
-        base_config.bits_per_dim = 10;
-        base_config.population_size = 100;
+        ga_config config;
+        config.problem_name = "Deb";
+        config.dimension = 1;
+        config.population_size = 100;
+        config.island_count = 16;
+        config.generations_per_evolution = 50;
+        config.total_evolutions = 10;
+        config.crossover_type = "sbx";
+        config.crossover_prob = 0.9;
+        config.mutation_type = "polynomial";
+        config.mutation_prob = 0.02;
+        config.selection_method = "tournament";
         
-        // Binary encoding, single-point crossover
-        base_config.use_gray_code = false;
-        base_config.crossover_type = "single"; // "single" is the correct name in pagmo/sga
-        base_config.crossover_prob = 0.8;
-        base_config.mutation_prob = 0.01;
-        base_config.selection_method = "tournament";
-        base_config.generational = true;
-        
-        configs.push_back(base_config);
+        configs.push_back(config);
         config_id++;
     }
     
     // Run all configurations
     for (int i = 0; i < configs.size(); ++i) {
-        run_config(i + 1, configs[i], detailed_csv, summary_csv);
+        run_config(i + 1, configs[i], detailed_csv, summary_csv, NUM_RUNS);
     }
     
     std::cout << "All configurations completed. Results saved to 'results' directory." << std::endl;
