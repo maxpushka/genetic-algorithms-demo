@@ -17,15 +17,15 @@
 
 // Custom Deb function implementation
 struct deb_func {
-    deb_func(unsigned dim = 1) : m_dim(dim) {}
+    explicit deb_func(const unsigned dim = 1) : m_dim(dim) {}
     
-    pagmo::vector_double fitness(const pagmo::vector_double &x) const {
+    [[nodiscard]] pagmo::vector_double fitness(const pagmo::vector_double &x) const {
         double result = 0.0;
         
         for (decltype(m_dim) i = 0u; i < m_dim; ++i) {
-            double xi = x[i];
-            double term1 = std::exp(-2.0 * std::log(2.0) * std::pow((xi - 0.1) / 0.8, 2.0));
-            double term2 = std::pow(std::sin(5.0 * M_PI * xi), 6.0);
+            const double xi = x[i];
+            const double term1 = std::exp(-2.0 * std::log(2.0) * std::pow((xi - 0.1) / 0.8, 2.0));
+            const double term2 = std::pow(std::sin(5.0 * M_PI * xi), 6.0);
             result += term1 * term2;
         }
         
@@ -33,22 +33,22 @@ struct deb_func {
         return {-result};
     }
     
-    std::pair<pagmo::vector_double, pagmo::vector_double> get_bounds() const {
+    [[nodiscard]] std::pair<pagmo::vector_double, pagmo::vector_double> get_bounds() const {
         pagmo::vector_double lb(m_dim, 0.0);
         pagmo::vector_double ub(m_dim, 1.023);
         return {lb, ub};
     }
     
     // Additional methods to help with analysis
-    pagmo::vector_double get_optimal_point() const {
+    [[nodiscard]] pagmo::vector_double get_optimal_point() const {
         return pagmo::vector_double(m_dim, 0.1);
     }
     
-    double get_optimal_fitness() const {
+    [[nodiscard]] double get_optimal_fitness() const {
         return -m_dim; // Each dimension contributes -1.0 at optimum
     }
     
-    std::string get_name() const {
+    [[nodiscard]] std::string get_name() const {
         return "Deb's function";
     }
     
@@ -151,7 +151,7 @@ struct aggregate_stats {
     }
     
     // For CSV output
-    std::string to_csv() const {
+    [[nodiscard]] std::string to_csv() const {
         std::stringstream ss;
         ss << std::fixed << std::setprecision(6);
         
