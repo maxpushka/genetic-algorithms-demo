@@ -194,10 +194,8 @@ Suc – відсоток **успішних** прогонів
 
 Стандартне відхилення обчислюємо так:
 
-\sqrt{\frac{1}{Ns-1}\sum_{i=1}^{Ns}(x_i - avg\_x)^2} \rightarrow \rightarrow (1)
-
-\text{де } Ns - \text{кількість успішних прогонів (від 0 до NR)}, avg\_x = \frac{1}{N}\sum_{i=1}^{N}x_i
-
+$$\sqrt{\frac{1}{Ns-1}\sum_{i=1}^{Ns}(x_i - avg\_x)^2} \rightarrow \rightarrow (1)$$
+$$\text{де } Ns - \text{кількість успішних прогонів (від 0 до NR)}, avg\_x = \frac{1}{N}\sum_{i=1}^{N}x_i$$
 - Min_NFE, Max_ NFE, Avg_NFE, Sigma_NFE
 - Min_Fmax, Max_ Fmax, Avg_Fmax, Sigma_ Fmax
 - Min_Favg, Max_ Favg, Avg_Favg, Sigma_ Favg
@@ -218,17 +216,14 @@ Suc – відсоток **успішних** прогонів
 #### Вар – 2
 
 1: Функція (шляху) Еклі (Ackley’s (Path) function):
+$$F_{25}(x_1, x_2, \ldots, x_n) = 20 * exp \left( -0.2 * \sqrt{\frac{1}{n}\sum_{i=1}^{n}x_i^2} \right) + exp \left( \frac{1}{n}\sum_{i=1}^{n}cos(2\pi x_i) \right)$$
+$$-5.12 \leq x_i < 5.12, \, i = \overline{1,n}.$$
 
-F_{25}(x_1, x_2, \ldots, x_n) = 20 * exp \left( -0.2 * \sqrt{\frac{1}{n}\sum_{i=1}^{n}x_i^2} \right) + exp \left( \frac{1}{n}\sum_{i=1}^{n}cos(2\pi x_i) \right)
-
--5.12 \leq x_i < 5.12, \, i = \overline{1,n}.
-
-\text{Глобальний максимум:}
-
-y = F_{25}(x_1, x_2, \ldots, x_n) = 21, x_i = 0, i = \overline{1,n}.
+Глобальний максимум:
+$$y = F_{25}(x_1, x_2, \ldots, x_n) = 21, x_i = 0, i = \overline{1,n}.$$
 
 2: Функція Деба 2 (Decreasing maxima, Deb’s test function 2):
 
-y = F_{16}(x_1, x_2,..., x_n) = \sum_{i=1}^{n} e^{-2(\ln 2) \left( \frac{x_i-0.1}{0.8} \right)^2} \sin^6 (5\pi x_i), \, 0 \leq x_i < 1.023, \, i = \overline{1,n}.
+$$y = F_{16}(x_1, x_2,..., x_n) = \sum_{i=1}^{n} e^{-2(\ln 2) \left( \frac{x_i-0.1}{0.8} \right)^2} \sin^6 (5\pi x_i), \, 0 \leq x_i < 1.023, \, i = \overline{1,n}.$$
 
-Функція має 5^n максимумів різної висоти, що знаходяться на однаковій відстані один від одного. Глобальний максимум: f(x) \approx 1.0000, \, x_i = 0.1
+Функція має $5^n$ максимумів різної висоти, що знаходяться на однаковій відстані один від одного. Глобальний максимум: $f(x) \approx 1.0000, \, x_i = 0.1$
