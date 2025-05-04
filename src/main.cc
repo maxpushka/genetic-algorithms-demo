@@ -599,7 +599,24 @@ public:
       
   // Helper to determine if we're minimizing or maximizing
   static bool is_minimization(const pagmo::problem& prob) {
-    return prob.get_nobj() == 1 && !prob.get_gh_tolerance().first;
+    // In PaGMO, all problems are formulated as minimization problems
+    // However, we negate the objective function for problems we want to maximize
+    // So for our implementation, we need to check the problem type:
+    const std::string name = prob.get_name();
+    
+    // Ackley is a minimization problem in PaGMO
+    if (name == "Ackley Function") {
+      return true;
+    }
+    
+    // Our custom Deb function is set up to return negated values
+    // because we want to maximize it
+    if (name == "Deb's function") {
+      return false;
+    }
+    
+    // Default: PaGMO uses minimization
+    return true;
   }
 };
 
