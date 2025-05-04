@@ -185,10 +185,69 @@ struct aggregate_stats {
   }
 };
 
+// Enums to reduce memory usage
+enum class ProblemType {
+  Ackley,
+  Deb
+};
+
+enum class SelectionMethod {
+  Tournament
+  // Add other methods as needed
+};
+
+enum class CrossoverType {
+  Single,  // single-point crossover
+  SBX      // simulated binary crossover
+};
+
+enum class MutationType {
+  Polynomial
+  // Add other types as needed
+};
+
+// Helper functions to convert enums to strings
+inline auto to_string(ProblemType type) -> std::string {
+  switch (type) {
+    case ProblemType::Ackley: return "Ackley";
+    case ProblemType::Deb: return "Deb";
+    default: return "Unknown";
+  }
+}
+
+inline std::string to_string(const SelectionMethod method) {
+  switch (method) {
+    case SelectionMethod::Tournament: return "tournament";
+    default: return "unknown";
+  }
+}
+
+inline std::string to_string(const CrossoverType type) {
+  switch (type) {
+    case CrossoverType::Single: return "single";
+    case CrossoverType::SBX: return "sbx";
+    default: return "unknown";
+  }
+}
+
+inline std::string to_string(const MutationType type) {
+  switch (type) {
+    case MutationType::Polynomial: return "polynomial";
+    default: return "unknown";
+  }
+}
+
+// Helper functions to convert strings to enums
+inline CrossoverType crossover_from_string(const std::string& str) {
+  if (str == "single") return CrossoverType::Single;
+  if (str == "sbx") return CrossoverType::SBX;
+  throw std::runtime_error("Unknown crossover type: " + str);
+}
+
 // Configuration parameters
 struct ga_config {
   // Problem parameters
-  std::string problem_name;
+  ProblemType problem_type;
   unsigned dimension;
 
   // GA parameters
@@ -199,9 +258,9 @@ struct ga_config {
 
   double crossover_prob;
   double mutation_prob;
-  std::string selection_method;
-  std::string crossover_type;
-  std::string mutation_type;
+  SelectionMethod selection_method;
+  CrossoverType crossover_type;
+  MutationType mutation_type;
 
   // For CSV header
   static std::string csv_header() {
@@ -215,17 +274,17 @@ struct ga_config {
   std::string to_csv(int config_id) const {
     std::stringstream ss;
     ss << config_id << ",";
-    ss << problem_name << ",";
+    ss << to_string(problem_type) << ",";
     ss << dimension << ",";
     ss << population_size << ",";
     ss << island_count << ",";
     ss << generations_per_evolution << ",";
     ss << total_evolutions << ",";
-    ss << crossover_type << ",";
+    ss << to_string(crossover_type) << ",";
     ss << crossover_prob << ",";
-    ss << mutation_type << ",";
+    ss << to_string(mutation_type) << ",";
     ss << mutation_prob << ",";
-    ss << selection_method;
+    ss << to_string(selection_method);
 
     return ss.str();
   }
@@ -265,14 +324,16 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
 
   // Create the problem
   pagmo::problem prob;
-  if (config.problem_name == "Ackley") {
-    // We negate since PaGMO minimizes by default and we want to maximize
-    prob = pagmo::problem{pagmo::ackley{config.dimension}};
-    // Set to minimization problem
-  } else if (config.problem_name == "Deb") {
-    prob = pagmo::problem{deb_func{config.dimension}};
-  } else {
-    throw std::runtime_error("Unknown problem: " + config.problem_name);
+  switch (config.problem_type) {
+    case ProblemType::Ackley:
+      // We negate since PaGMO minimizes by default and we want to maximize
+      prob = pagmo::problem{pagmo::ackley{config.dimension}};
+      break;
+    case ProblemType::Deb:
+      prob = pagmo::problem{deb_func{config.dimension}};
+      break;
+    default:
+      throw std::runtime_error("Unknown problem type");
   }
 
   // Set up algorithm
@@ -282,11 +343,11 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
       1.0,                               // eta_c (distribution index for SBX)
       config.mutation_prob,              // Mutation probability
       1.0,                               // param_m (mutation parameter)
-      2,                      // param_s (selection parameter - tournament size)
-      config.crossover_type,  // Crossover type
-      config.mutation_type,   // Mutation type
-      config.selection_method,  // Selection type
-      seed                      // Random seed
+      2,                               // param_s (selection parameter - tournament size)
+      to_string(config.crossover_type),  // Convert enum to string for PaGMO
+      to_string(config.mutation_type),   // Convert enum to string for PaGMO
+      to_string(config.selection_method),// Convert enum to string for PaGMO
+      seed                               // Random seed
       )};
 
   // Set up archipelago
@@ -310,7 +371,7 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
   // Find the best solution across all islands
   pagmo::vector_double best_x;
   double best_f = std::numeric_limits<double>::lowest();
-  if (config.problem_name == "Ackley") {
+  if (config.problem_type == ProblemType::Ackley) {
     best_f = std::numeric_limits<double>::max();
   }
 
@@ -324,7 +385,7 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
     // Calculate average fitness for this island
     for (pagmo::population::size_type i = 0; i < pop.size(); ++i) {
       double fitness;
-      if (config.problem_name == "Ackley") {
+      if (config.problem_type == ProblemType::Ackley) {
         fitness = pop.get_f()[i][0];  // Minimizing
       } else {
         fitness =
@@ -336,7 +397,7 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
     }
 
     // Check if this island has the best solution
-    if (config.problem_name == "Ackley") {
+    if (config.problem_type == ProblemType::Ackley) {
       // For Ackley, lower is better (minimization)
       if (pop.champion_f()[0] < best_f) {
         best_f = pop.champion_f()[0];
@@ -374,7 +435,7 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
   pagmo::vector_double optimal_x;
   double optimal_f;
 
-  if (config.problem_name == "Ackley") {
+  if (config.problem_type == ProblemType::Ackley) {
     // Ackley optimum is at the origin (0,0,...,0) with f=0
     optimal_x = pagmo::vector_double(config.dimension, 0.0);
     optimal_f = 0.0;
@@ -385,7 +446,7 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
   }
 
   // Calculate peak accuracy and distance accuracy
-  if (config.problem_name == "Ackley") {
+  if (config.problem_type == ProblemType::Ackley) {
     // For Ackley, f_optimal = 0 (minimum), so we calculate differently
     stats.peak_accuracy = 1.0 / (1.0 + std::abs(best_f - optimal_f));
   } else {
@@ -394,7 +455,7 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
   stats.distance_accuracy = 1.0 / (1.0 + euclidean_distance(best_x, optimal_x));
 
   // Determine if run was successful
-  if (config.problem_name == "Ackley") {
+  if (config.problem_type == ProblemType::Ackley) {
     stats.is_successful = (std::abs(best_f - optimal_f) <= DELTA) &&
                           (euclidean_distance(best_x, optimal_x) <= SIGMA);
   } else {
@@ -658,7 +719,7 @@ std::vector<run_stats> run_experiment_batch(
     std::mutex &cout_mutex, const unsigned num_runs) {
   {
     std::lock_guard lock(cout_mutex);
-    std::cout << "Starting config " << config_id << ": " << config.problem_name
+    std::cout << "Starting config " << config_id << ": " << to_string(config.problem_type)
               << ", dim=" << config.dimension
               << ", pop=" << config.population_size
               << ", islands=" << config.island_count << std::endl;
@@ -703,7 +764,7 @@ std::vector<run_stats> run_experiment_batch(
 void run_config(const int config_id, const ga_config &config,
                 std::ofstream &detailed_csv, std::ofstream &summary_csv,
                 const unsigned num_runs) {
-  std::cout << "Running config " << config_id << ": " << config.problem_name
+  std::cout << "Running config " << config_id << ": " << to_string(config.problem_type)
             << ", dim=" << config.dimension
             << ", pop=" << config.population_size
             << ", islands=" << config.island_count << std::endl;
@@ -776,7 +837,7 @@ int main() {
   constexpr std::array dimensions = {1, 2, 3, 5};
 
   // Crossover types (single point and uniform)
-  constexpr std::array crossover_types = {"single", "sbx"};
+  constexpr std::array crossover_types = {CrossoverType::Single, CrossoverType::SBX};
 
   // Crossover probabilities (as per the task)
   constexpr std::array crossover_probs = {0.0, 0.6, 0.8, 1.0};
@@ -792,14 +853,14 @@ int main() {
   // Selection method (using tournament as it's supported by PaGMO)
   // Ideally we would implement all the selection methods from the task,
   // but for this demo we'll use tournament which PaGMO supports
-  constexpr auto selection_method = "tournament";
+  const auto selection_method = SelectionMethod::Tournament;
 
   // For each population size and dimension combination
   for (unsigned pop_size : population_sizes) {
     for (unsigned dim : dimensions) {
       // Basic config
       ga_config config;
-      config.problem_name = "Ackley";
+      config.problem_type = ProblemType::Ackley;
       config.dimension = dim;
       config.population_size = pop_size;
       config.island_count = 16;  // Using 16 islands for parallelization
@@ -816,8 +877,8 @@ int main() {
           for (double mutation_prob : mutation_probs) {
             config.crossover_type = crossover_type;
             config.crossover_prob = crossover_prob;
-            config.mutation_type = "polynomial";  // Using polynomial mutation
-                                                  // for density-based mutation
+            config.mutation_type = MutationType::Polynomial;  // Using polynomial mutation
+                                                               // for density-based mutation
             config.mutation_prob = mutation_prob;
 
             configs.push_back(config);
@@ -839,7 +900,7 @@ int main() {
     for (const unsigned dim : dimensions) {
       // Basic config
       ga_config config;
-      config.problem_name = "Deb";
+      config.problem_type = ProblemType::Deb;
       config.dimension = dim;
       config.population_size = pop_size;
       config.island_count = 16;  // Using 16 islands for parallelization
@@ -856,8 +917,8 @@ int main() {
           for (double mutation_prob : mutation_probs) {
             config.crossover_type = crossover_type;
             config.crossover_prob = crossover_prob;
-            config.mutation_type = "polynomial";  // Using polynomial mutation
-                                                  // for density-based mutation
+            config.mutation_type = MutationType::Polynomial;  // Using polynomial mutation
+                                                               // for density-based mutation
             config.mutation_prob = mutation_prob;
 
             configs.push_back(config);
@@ -897,9 +958,9 @@ int main() {
   size_t ackley_configs = 0;
   size_t deb_configs = 0;
   for (const auto &config : configs) {
-    if (config.problem_name == "Ackley") {
+    if (config.problem_type == ProblemType::Ackley) {
       ackley_configs++;
-    } else if (config.problem_name == "Deb") {
+    } else if (config.problem_type == ProblemType::Deb) {
       deb_configs++;
     }
   }
