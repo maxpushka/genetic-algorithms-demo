@@ -9,6 +9,9 @@
 #include <thread>
 #include <mutex>
 #include <atomic>
+#include <queue>
+#include <condition_variable>
+#include <future>
 
 #include <pagmo/algorithm.hpp>
 #include <pagmo/algorithms/sga.hpp>
@@ -19,13 +22,18 @@
 #include <pagmo/io.hpp>
 
 // Custom Deb function implementation
-struct deb_func {
-    explicit deb_func(const unsigned dim = 1) : m_dim(dim) {}
+struct deb_func
+{
+    explicit deb_func(const unsigned dim = 1) : m_dim(dim)
+    {
+    }
 
-    [[nodiscard]] pagmo::vector_double fitness(const pagmo::vector_double &x) const {
+    [[nodiscard]] pagmo::vector_double fitness(const pagmo::vector_double& x) const
+    {
         double result = 0.0;
 
-        for (decltype(m_dim) i = 0u; i < m_dim; ++i) {
+        for (decltype(m_dim) i = 0u; i < m_dim; ++i)
+        {
             const double xi = x[i];
             const double term1 = std::exp(-2.0 * std::log(2.0) * std::pow((xi - 0.1) / 0.8, 2.0));
             const double term2 = std::pow(std::sin(5.0 * M_PI * xi), 6.0);
@@ -36,22 +44,26 @@ struct deb_func {
         return {-result};
     }
 
-    [[nodiscard]] std::pair<pagmo::vector_double, pagmo::vector_double> get_bounds() const {
+    [[nodiscard]] std::pair<pagmo::vector_double, pagmo::vector_double> get_bounds() const
+    {
         pagmo::vector_double lb(m_dim, 0.0);
         pagmo::vector_double ub(m_dim, 1.023);
         return {lb, ub};
     }
 
     // Additional methods to help with analysis
-    [[nodiscard]] pagmo::vector_double get_optimal_point() const {
+    [[nodiscard]] pagmo::vector_double get_optimal_point() const
+    {
         return pagmo::vector_double(m_dim, 0.1);
     }
 
-    [[nodiscard]] double get_optimal_fitness() const {
+    [[nodiscard]] double get_optimal_fitness() const
+    {
         return -m_dim; // Each dimension contributes -1.0 at optimum
     }
 
-    [[nodiscard]] std::string get_name() const {
+    [[nodiscard]] std::string get_name() const
+    {
         return "Deb's function";
     }
 
@@ -59,7 +71,8 @@ struct deb_func {
 };
 
 // Utility for tracking statistics
-struct run_stats {
+struct run_stats
+{
     bool is_successful = false;
     unsigned iterations = 0;
     unsigned fitness_evals = 0;
@@ -71,7 +84,8 @@ struct run_stats {
     double distance_accuracy = 0.0;
 
     // For CSV output
-    [[nodiscard]] std::string to_csv() const {
+    [[nodiscard]] std::string to_csv() const
+    {
         std::stringstream ss;
         ss << std::fixed << std::setprecision(6);
         ss << (is_successful ? 1 : 0) << ",";
@@ -80,7 +94,8 @@ struct run_stats {
         ss << f_max << ",";
 
         // x_max as a string
-        for (const auto x : x_max) {
+        for (const auto x : x_max)
+        {
             ss << x << ";";
         }
         ss << ",";
@@ -95,7 +110,8 @@ struct run_stats {
 };
 
 // Aggregate statistics
-struct aggregate_stats {
+struct aggregate_stats
+{
     double success_rate = 0.0;
 
     // For successful runs
@@ -141,20 +157,22 @@ struct aggregate_stats {
     double std_iterations_f = 0.0;
 
     // For CSV header
-    static std::string csv_header() {
+    static std::string csv_header()
+    {
         return "Success_Rate,"
-               "Min_NI,Max_NI,Avg_NI,Sigma_NI,"
-               "Min_NFE,Max_NFE,Avg_NFE,Sigma_NFE,"
-               "Min_Fmax,Max_Fmax,Avg_Fmax,Sigma_Fmax,"
-               "Min_Favg,Max_Favg,Avg_Favg,Sigma_Favg,"
-               "Min_FC,Max_FC,Avg_FC,Sigma_FC,"
-               "Min_PA,Max_PA,Avg_PA,Sigma_PA,"
-               "Min_DA,Max_DA,Avg_DA,Sigma_DA,"
-               "Min_NI_f,Max_NI_f,Avg_NI_f,Sigma_NI_f";
+            "Min_NI,Max_NI,Avg_NI,Sigma_NI,"
+            "Min_NFE,Max_NFE,Avg_NFE,Sigma_NFE,"
+            "Min_Fmax,Max_Fmax,Avg_Fmax,Sigma_Fmax,"
+            "Min_Favg,Max_Favg,Avg_Favg,Sigma_Favg,"
+            "Min_FC,Max_FC,Avg_FC,Sigma_FC,"
+            "Min_PA,Max_PA,Avg_PA,Sigma_PA,"
+            "Min_DA,Max_DA,Avg_DA,Sigma_DA,"
+            "Min_NI_f,Max_NI_f,Avg_NI_f,Sigma_NI_f";
     }
 
     // For CSV output
-    [[nodiscard]] std::string to_csv() const {
+    [[nodiscard]] std::string to_csv() const
+    {
         std::stringstream ss;
         ss << std::fixed << std::setprecision(6);
 
@@ -165,8 +183,10 @@ struct aggregate_stats {
         ss << min_f_max << "," << max_f_max << "," << avg_f_max << "," << std_f_max << ",";
         ss << min_f_avg << "," << max_f_avg << "," << avg_f_avg << "," << std_f_avg << ",";
         ss << min_convergence << "," << max_convergence << "," << avg_convergence << "," << std_convergence << ",";
-        ss << min_peak_accuracy << "," << max_peak_accuracy << "," << avg_peak_accuracy << "," << std_peak_accuracy << ",";
-        ss << min_dist_accuracy << "," << max_dist_accuracy << "," << avg_dist_accuracy << "," << std_dist_accuracy << ",";
+        ss << min_peak_accuracy << "," << max_peak_accuracy << "," << avg_peak_accuracy << "," << std_peak_accuracy <<
+            ",";
+        ss << min_dist_accuracy << "," << max_dist_accuracy << "," << avg_dist_accuracy << "," << std_dist_accuracy <<
+            ",";
 
         ss << min_iterations_f << "," << max_iterations_f << "," << avg_iterations_f << "," << std_iterations_f;
 
@@ -175,7 +195,8 @@ struct aggregate_stats {
 };
 
 // Configuration parameters
-struct ga_config {
+struct ga_config
+{
     // Problem parameters
     std::string problem_name;
     unsigned dimension;
@@ -193,14 +214,16 @@ struct ga_config {
     std::string mutation_type;
 
     // For CSV header
-    static std::string csv_header() {
+    static std::string csv_header()
+    {
         return "Config_ID,Problem,Dimension,Population_Size,Islands,"
-               "Generations_Per_Evolution,Total_Evolutions,"
-               "Crossover_Type,Crossover_Prob,Mutation_Type,Mutation_Prob,Selection_Method";
+            "Generations_Per_Evolution,Total_Evolutions,"
+            "Crossover_Type,Crossover_Prob,Mutation_Type,Mutation_Prob,Selection_Method";
     }
 
     // For CSV output
-    std::string to_csv(int config_id) const {
+    std::string to_csv(int config_id) const
+    {
         std::stringstream ss;
         ss << config_id << ",";
         ss << problem_name << ",";
@@ -220,9 +243,11 @@ struct ga_config {
 };
 
 // Function to calculate Euclidean distance
-double euclidean_distance(const pagmo::vector_double &a, const pagmo::vector_double &b) {
+double euclidean_distance(const pagmo::vector_double& a, const pagmo::vector_double& b)
+{
     double sum = 0.0;
-    for (size_t i = 0; i < a.size(); ++i) {
+    for (size_t i = 0; i < a.size(); ++i)
+    {
         const double diff = a[i] - b[i];
         sum += diff * diff;
     }
@@ -230,11 +255,13 @@ double euclidean_distance(const pagmo::vector_double &a, const pagmo::vector_dou
 }
 
 // Function to calculate standard deviation
-double calculate_std_dev(const std::vector<double> &values, const double avg) {
+double calculate_std_dev(const std::vector<double>& values, const double avg)
+{
     if (values.empty() || values.size() == 1) return 0.0;
 
     double sum_squared_diff = 0.0;
-    for (const double value : values) {
+    for (const double value : values)
+    {
         const double diff = value - avg;
         sum_squared_diff += diff * diff;
     }
@@ -247,41 +274,50 @@ constexpr double DELTA = 0.01; // Fitness threshold for success
 constexpr double SIGMA = 0.01; // Distance threshold for success
 
 // Function to run a single GA experiment with given parameters
-run_stats run_experiment(const ga_config &config, unsigned seed) {
+run_stats run_experiment(const ga_config& config, unsigned seed)
+{
     run_stats stats;
 
     // Create the problem
     pagmo::problem prob;
-    if (config.problem_name == "Ackley") {
+    if (config.problem_name == "Ackley")
+    {
         // We negate since PaGMO minimizes by default and we want to maximize
         prob = pagmo::problem{pagmo::ackley{config.dimension}};
         // Set to minimization problem
-    } else if (config.problem_name == "Deb") {
+    }
+    else if (config.problem_name == "Deb")
+    {
         prob = pagmo::problem{deb_func{config.dimension}};
-    } else {
+    }
+    else
+    {
         throw std::runtime_error("Unknown problem: " + config.problem_name);
     }
 
     // Set up algorithm
-    pagmo::algorithm algo{pagmo::sga(
-        config.generations_per_evolution,  // Generations per evolution
-        config.crossover_prob,             // Crossover probability
-        1.0,                               // eta_c (distribution index for SBX)
-        config.mutation_prob,              // Mutation probability
-        1.0,                               // param_m (mutation parameter)
-        2,                                 // param_s (selection parameter - tournament size)
-        config.crossover_type,             // Crossover type
-        config.mutation_type,              // Mutation type
-        config.selection_method,           // Selection type
-        seed                               // Random seed
-    )};
+    pagmo::algorithm algo{
+        pagmo::sga(
+            config.generations_per_evolution, // Generations per evolution
+            config.crossover_prob, // Crossover probability
+            1.0, // eta_c (distribution index for SBX)
+            config.mutation_prob, // Mutation probability
+            1.0, // param_m (mutation parameter)
+            2, // param_s (selection parameter - tournament size)
+            config.crossover_type, // Crossover type
+            config.mutation_type, // Mutation type
+            config.selection_method, // Selection type
+            seed // Random seed
+        )
+    };
 
     // Set up archipelago
     pagmo::archipelago archi{config.island_count, algo, prob, config.population_size, seed};
 
     // Run the evolutions
     auto start_time = std::chrono::high_resolution_clock::now();
-    for (unsigned i = 0; i < config.total_evolutions; ++i) {
+    for (unsigned i = 0; i < config.total_evolutions; ++i)
+    {
         archi.evolve();
         archi.wait_check();
     }
@@ -294,7 +330,8 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
     // Find the best solution across all islands
     pagmo::vector_double best_x;
     double best_f = std::numeric_limits<double>::lowest();
-    if (config.problem_name == "Ackley") {
+    if (config.problem_name == "Ackley")
+    {
         best_f = std::numeric_limits<double>::max();
     }
 
@@ -302,15 +339,20 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
     int total_individuals = 0;
 
     // Get results from all islands and find the best
-    for (const auto &isl : archi) {
-        const auto &pop = isl.get_population();
+    for (const auto& isl : archi)
+    {
+        const auto& pop = isl.get_population();
 
         // Calculate average fitness for this island
-        for (pagmo::population::size_type i = 0; i < pop.size(); ++i) {
+        for (pagmo::population::size_type i = 0; i < pop.size(); ++i)
+        {
             double fitness;
-            if (config.problem_name == "Ackley") {
+            if (config.problem_name == "Ackley")
+            {
                 fitness = pop.get_f()[i][0]; // Minimizing
-            } else {
+            }
+            else
+            {
                 fitness = -pop.get_f()[i][0]; // Negating since Deb is set up for minimization
             }
             total_fitness += fitness;
@@ -318,15 +360,20 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
         }
 
         // Check if this island has the best solution
-        if (config.problem_name == "Ackley") {
+        if (config.problem_name == "Ackley")
+        {
             // For Ackley, lower is better (minimization)
-            if (pop.champion_f()[0] < best_f) {
+            if (pop.champion_f()[0] < best_f)
+            {
                 best_f = pop.champion_f()[0];
                 best_x = pop.champion_x();
             }
-        } else {
+        }
+        else
+        {
             // For Deb, higher is better (maximization despite problem setup)
-            if (-pop.champion_f()[0] > best_f) {
+            if (-pop.champion_f()[0] > best_f)
+            {
                 best_f = -pop.champion_f()[0];
                 best_x = pop.champion_x();
             }
@@ -343,9 +390,11 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
     // Calculate convergence (population homogeneity)
     // We measure the average distance from individuals to the best solution
     double total_distance = 0.0;
-    for (const auto &isl : archi) {
-        const auto &pop = isl.get_population();
-        for (pagmo::population::size_type i = 0; i < pop.size(); ++i) {
+    for (const auto& isl : archi)
+    {
+        const auto& pop = isl.get_population();
+        for (pagmo::population::size_type i = 0; i < pop.size(); ++i)
+        {
             total_distance += euclidean_distance(pop.get_x()[i], best_x);
         }
     }
@@ -355,52 +404,67 @@ run_stats run_experiment(const ga_config &config, unsigned seed) {
     pagmo::vector_double optimal_x;
     double optimal_f;
 
-    if (config.problem_name == "Ackley") {
+    if (config.problem_name == "Ackley")
+    {
         // Ackley optimum is at the origin (0,0,...,0) with f=0
         optimal_x = pagmo::vector_double(config.dimension, 0.0);
         optimal_f = 0.0;
-    } else {
+    }
+    else
+    {
         // Deb optimum is at (0.1, 0.1, ..., 0.1) with f=dimension
         optimal_x = pagmo::vector_double(config.dimension, 0.1);
         optimal_f = config.dimension;
     }
 
     // Calculate peak accuracy and distance accuracy
-    if (config.problem_name == "Ackley") {
+    if (config.problem_name == "Ackley")
+    {
         // For Ackley, f_optimal = 0 (minimum), so we calculate differently
         stats.peak_accuracy = 1.0 / (1.0 + std::abs(best_f - optimal_f));
-    } else {
+    }
+    else
+    {
         stats.peak_accuracy = best_f / optimal_f;
     }
     stats.distance_accuracy = 1.0 / (1.0 + euclidean_distance(best_x, optimal_x));
 
     // Determine if run was successful
-    if (config.problem_name == "Ackley") {
+    if (config.problem_name == "Ackley")
+    {
         stats.is_successful = (std::abs(best_f - optimal_f) <= DELTA) &&
-                             (euclidean_distance(best_x, optimal_x) <= SIGMA);
-    } else {
+            (euclidean_distance(best_x, optimal_x) <= SIGMA);
+    }
+    else
+    {
         stats.is_successful = (std::abs(best_f - optimal_f) <= DELTA * optimal_f) &&
-                             (euclidean_distance(best_x, optimal_x) <= SIGMA);
+            (euclidean_distance(best_x, optimal_x) <= SIGMA);
     }
 
     // Approximate fitness evaluations (population_size * islands * generations)
-    stats.fitness_evals = config.population_size * config.island_count * config.generations_per_evolution * config.total_evolutions;
+    stats.fitness_evals = config.population_size * config.island_count * config.generations_per_evolution * config.
+        total_evolutions;
 
     return stats;
 }
 
 // Function to calculate aggregate statistics
-aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
+aggregate_stats calculate_aggregate_stats(const std::vector<run_stats>& runs)
+{
     aggregate_stats agg;
 
     // Count successful runs
     std::vector<run_stats> successful_runs;
     std::vector<run_stats> failed_runs;
 
-    for (const auto &run : runs) {
-        if (run.is_successful) {
+    for (const auto& run : runs)
+    {
+        if (run.is_successful)
+        {
             successful_runs.push_back(run);
-        } else {
+        }
+        else
+        {
             failed_runs.push_back(run);
         }
     }
@@ -408,13 +472,15 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
     agg.success_rate = 100.0 * successful_runs.size() / runs.size();
 
     // Process successful runs
-    if (!successful_runs.empty()) {
+    if (!successful_runs.empty())
+    {
         // Calculate min, max, avg for iterations
         std::vector<double> iterations_vec;
         agg.min_iterations = successful_runs[0].iterations;
         agg.max_iterations = successful_runs[0].iterations;
 
-        for (const auto &run : successful_runs) {
+        for (const auto& run : successful_runs)
+        {
             agg.min_iterations = std::min(agg.min_iterations, run.iterations);
             agg.max_iterations = std::max(agg.max_iterations, run.iterations);
             iterations_vec.push_back(run.iterations);
@@ -427,7 +493,8 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
         agg.min_evals = successful_runs[0].fitness_evals;
         agg.max_evals = successful_runs[0].fitness_evals;
 
-        for (const auto &run : successful_runs) {
+        for (const auto& run : successful_runs)
+        {
             agg.min_evals = std::min(agg.min_evals, run.fitness_evals);
             agg.max_evals = std::max(agg.max_evals, run.fitness_evals);
             evals_vec.push_back(run.fitness_evals);
@@ -440,7 +507,8 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
         agg.min_f_max = successful_runs[0].f_max;
         agg.max_f_max = successful_runs[0].f_max;
 
-        for (const auto &run : successful_runs) {
+        for (const auto& run : successful_runs)
+        {
             agg.min_f_max = std::min(agg.min_f_max, run.f_max);
             agg.max_f_max = std::max(agg.max_f_max, run.f_max);
             f_max_vec.push_back(run.f_max);
@@ -453,7 +521,8 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
         agg.min_f_avg = successful_runs[0].f_avg;
         agg.max_f_avg = successful_runs[0].f_avg;
 
-        for (const auto &run : successful_runs) {
+        for (const auto& run : successful_runs)
+        {
             agg.min_f_avg = std::min(agg.min_f_avg, run.f_avg);
             agg.max_f_avg = std::max(agg.max_f_avg, run.f_avg);
             f_avg_vec.push_back(run.f_avg);
@@ -466,7 +535,8 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
         agg.min_convergence = successful_runs[0].convergence;
         agg.max_convergence = successful_runs[0].convergence;
 
-        for (const auto &run : successful_runs) {
+        for (const auto& run : successful_runs)
+        {
             agg.min_convergence = std::min(agg.min_convergence, run.convergence);
             agg.max_convergence = std::max(agg.max_convergence, run.convergence);
             conv_vec.push_back(run.convergence);
@@ -479,7 +549,8 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
         agg.min_peak_accuracy = successful_runs[0].peak_accuracy;
         agg.max_peak_accuracy = successful_runs[0].peak_accuracy;
 
-        for (const auto &run : successful_runs) {
+        for (const auto& run : successful_runs)
+        {
             agg.min_peak_accuracy = std::min(agg.min_peak_accuracy, run.peak_accuracy);
             agg.max_peak_accuracy = std::max(agg.max_peak_accuracy, run.peak_accuracy);
             pa_vec.push_back(run.peak_accuracy);
@@ -492,7 +563,8 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
         agg.min_dist_accuracy = successful_runs[0].distance_accuracy;
         agg.max_dist_accuracy = successful_runs[0].distance_accuracy;
 
-        for (const auto &run : successful_runs) {
+        for (const auto& run : successful_runs)
+        {
             agg.min_dist_accuracy = std::min(agg.min_dist_accuracy, run.distance_accuracy);
             agg.max_dist_accuracy = std::max(agg.max_dist_accuracy, run.distance_accuracy);
             da_vec.push_back(run.distance_accuracy);
@@ -502,34 +574,198 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
     }
 
     // Process failed runs
-    if (!failed_runs.empty()) {
+    if (!failed_runs.empty())
+    {
         // Calculate min, max, avg for iterations (failed runs)
         std::vector<double> iterations_f_vec;
         agg.min_iterations_f = failed_runs[0].iterations;
         agg.max_iterations_f = failed_runs[0].iterations;
 
-        for (const auto &run : failed_runs) {
+        for (const auto& run : failed_runs)
+        {
             agg.min_iterations_f = std::min(agg.min_iterations_f, run.iterations);
             agg.max_iterations_f = std::max(agg.max_iterations_f, run.iterations);
             iterations_f_vec.push_back(run.iterations);
         }
-        agg.avg_iterations_f = std::accumulate(iterations_f_vec.begin(), iterations_f_vec.end(), 0.0) / iterations_f_vec.size();
+        agg.avg_iterations_f = std::accumulate(iterations_f_vec.begin(), iterations_f_vec.end(), 0.0) / iterations_f_vec
+            .size();
         agg.std_iterations_f = calculate_std_dev(iterations_f_vec, agg.avg_iterations_f);
     }
 
     return agg;
 }
 
-// Function to run a set of experiments with a given configuration
-void run_config(const int config_id, const ga_config &config, std::ofstream &detailed_csv, std::ofstream &summary_csv, const unsigned num_runs) {
+// Thread-safe queue for asynchronous I/O operations
+template <typename T>
+class ThreadSafeQueue
+{
+private:
+    std::queue<T> queue_;
+    mutable std::mutex mutex_;
+    std::condition_variable cond_;
+    bool done_ = false;
+
+public:
+    ThreadSafeQueue() = default;
+
+    void push(T item)
+    {
+        std::lock_guard lock(mutex_);
+        queue_.push(std::move(item));
+        cond_.notify_one();
+    }
+
+    bool try_pop(T& item)
+    {
+        std::lock_guard lock(mutex_);
+        if (queue_.empty())
+        {
+            return false;
+        }
+        item = std::move(queue_.front());
+        queue_.pop();
+        return true;
+    }
+
+    std::shared_ptr<T> try_pop()
+    {
+        std::lock_guard lock(mutex_);
+        if (queue_.empty())
+        {
+            return nullptr;
+        }
+        std::shared_ptr<T> res(std::make_shared<T>(std::move(queue_.front())));
+        queue_.pop();
+        return res;
+    }
+
+    void wait_and_pop(T& item)
+    {
+        std::unique_lock lock(mutex_);
+        cond_.wait(lock, [this]() { return !queue_.empty() || done_; });
+        if (done_ && queue_.empty())
+        {
+            return;
+        }
+        item = std::move(queue_.front());
+        queue_.pop();
+    }
+
+    std::shared_ptr<T> wait_and_pop()
+    {
+        std::unique_lock lock(mutex_);
+        cond_.wait(lock, [this]() { return !queue_.empty() || done_; });
+        if (done_ && queue_.empty())
+        {
+            return nullptr;
+        }
+        std::shared_ptr<T> res(std::make_shared<T>(std::move(queue_.front())));
+        queue_.pop();
+        return res;
+    }
+
+    bool empty() const
+    {
+        std::lock_guard lock(mutex_);
+        return queue_.empty();
+    }
+
+    size_t size() const
+    {
+        std::lock_guard lock(mutex_);
+        return queue_.size();
+    }
+
+    void done()
+    {
+        std::lock_guard lock(mutex_);
+        done_ = true;
+        cond_.notify_all();
+    }
+
+    bool is_done() const
+    {
+        std::lock_guard lock(mutex_);
+        return done_;
+    }
+};
+
+// Data structures for I/O operations
+struct DetailedResultEntry
+{
+    int config_id;
+    unsigned run_id;
+    run_stats stats;
+};
+
+struct SummaryResultEntry
+{
+    int config_id;
+    ga_config config;
+    aggregate_stats stats;
+};
+
+// Function to run experiments with thread-local storage
+std::vector<run_stats> run_experiment_batch(const int config_id, const ga_config& config,
+                                            ThreadSafeQueue<DetailedResultEntry>& detailed_queue,
+                                            std::mutex& cout_mutex, const unsigned num_runs)
+{
+    {
+        std::lock_guard lock(cout_mutex);
+        std::cout << "Starting config " << config_id << ": "
+            << config.problem_name << ", dim=" << config.dimension
+            << ", pop=" << config.population_size
+            << ", islands=" << config.island_count << std::endl;
+    }
+
+    // Thread-local storage for results
+    std::vector<run_stats> local_runs;
+    local_runs.reserve(num_runs);
+
+    for (unsigned run = 0; run < num_runs; ++run)
+    {
+        {
+            std::lock_guard lock(cout_mutex);
+            std::cout << "  Config " << config_id << " - Run " << run + 1 << "/" << num_runs << "..." << std::flush;
+        }
+
+        // Use a different seed for each run
+        const unsigned seed = config_id * 1000 + run;
+        auto stats = run_experiment(config, seed);
+
+        // Queue detailed results for asynchronous writing
+        detailed_queue.push(DetailedResultEntry{config_id, run + 1, stats});
+
+        // Store locally
+        local_runs.push_back(stats);
+
+        {
+            std::lock_guard lock(cout_mutex);
+            std::cout << (stats.is_successful ? " Success" : " Failure") << std::endl;
+        }
+    }
+
+    {
+        std::lock_guard lock(cout_mutex);
+        std::cout << "Finished processing config " << config_id << std::endl;
+    }
+
+    return local_runs;
+}
+
+// Legacy function maintained for compatibility
+void run_config(const int config_id, const ga_config& config, std::ofstream& detailed_csv, std::ofstream& summary_csv,
+                const unsigned num_runs)
+{
     std::cout << "Running config " << config_id << ": "
-              << config.problem_name << ", dim=" << config.dimension
-              << ", pop=" << config.population_size
-              << ", islands=" << config.island_count << std::endl;
+        << config.problem_name << ", dim=" << config.dimension
+        << ", pop=" << config.population_size
+        << ", islands=" << config.island_count << std::endl;
 
     std::vector<run_stats> runs;
 
-    for (unsigned run = 0; run < num_runs; ++run) {
+    for (unsigned run = 0; run < num_runs; ++run)
+    {
         std::cout << "  Run " << run + 1 << "/" << num_runs << "..." << std::flush;
 
         // Use a different seed for each run
@@ -538,8 +774,8 @@ void run_config(const int config_id, const ga_config &config, std::ofstream &det
 
         // Write detailed results for this run
         detailed_csv << config_id << ","
-                    << run + 1 << ","
-                    << stats.to_csv() << std::endl;
+            << run + 1 << ","
+            << stats.to_csv() << std::endl;
 
         runs.push_back(stats);
 
@@ -551,11 +787,12 @@ void run_config(const int config_id, const ga_config &config, std::ofstream &det
 
     // Write summary for this config
     summary_csv << config_id << ","
-               << config.to_csv(config_id) << ","
-               << agg_stats.to_csv() << std::endl;
+        << config.to_csv(config_id) << ","
+        << agg_stats.to_csv() << std::endl;
 }
 
-int main() {
+int main()
+{
     std::cout << "Genetic Algorithm Optimization - Ackley and Deb Functions" << std::endl;
     std::cout << "=========================================================" << std::endl;
 
@@ -567,7 +804,9 @@ int main() {
     std::ofstream summary_csv("results/summary_results.csv");
 
     // Write headers
-    detailed_csv << "Config_ID,Run_ID,Is_Successful,Iterations,Fitness_Evals,F_max,X_max,F_avg,Convergence,Peak_Accuracy,Distance_Accuracy" << std::endl;
+    detailed_csv <<
+        "Config_ID,Run_ID,Is_Successful,Iterations,Fitness_Evals,F_max,X_max,F_avg,Convergence,Peak_Accuracy,Distance_Accuracy"
+        << std::endl;
     summary_csv << ga_config::csv_header() << "," << aggregate_stats::csv_header() << std::endl;
 
     // Configuration options to test
@@ -586,7 +825,7 @@ int main() {
     // 2. Then repeat for N=200, 300, 400
 
     // Define population sizes to test
-    constexpr std::array<unsigned, 4> population_sizes = {100, 200, 300, 400};
+    constexpr std::array population_sizes = {100, 200, 300, 400};
 
     // Define dimensions to test
     constexpr std::array dimensions = {1, 2, 3, 5};
@@ -599,10 +838,10 @@ int main() {
 
     // Mutation probabilities (as per the task, for different dimensions)
     std::map<unsigned, std::array<double, 3>> mutation_probs_by_dim = {
-        {1, {0.0, 0.001, 0.01}},      // n=1
-        {2, {0.0, 0.0005, 0.005}},    // n=2
-        {3, {0.0, 0.0003, 0.003}},    // n=3
-        {5, {0.0, 0.0002, 0.0005}}    // n=5
+        {1, {0.0, 0.001, 0.01}}, // n=1
+        {2, {0.0, 0.0005, 0.005}}, // n=2
+        {3, {0.0, 0.0003, 0.003}}, // n=3
+        {5, {0.0, 0.0002, 0.0005}} // n=5
     };
 
     // Selection method (using tournament as it's supported by PaGMO)
@@ -611,8 +850,10 @@ int main() {
     constexpr auto selection_method = "tournament";
 
     // For each population size and dimension combination
-    for (unsigned pop_size : population_sizes) {
-        for (unsigned dim : dimensions) {
+    for (unsigned pop_size : population_sizes)
+    {
+        for (unsigned dim : dimensions)
+        {
             // Basic config
             ga_config config;
             config.problem_name = "Ackley";
@@ -627,9 +868,12 @@ int main() {
             const auto& mutation_probs = mutation_probs_by_dim[dim];
 
             // Loop through all combinations
-            for (const auto &crossover_type : crossover_types) {
-                for (double crossover_prob : crossover_probs) {
-                    for (double mutation_prob : mutation_probs) {
+            for (const auto& crossover_type : crossover_types)
+            {
+                for (double crossover_prob : crossover_probs)
+                {
+                    for (double mutation_prob : mutation_probs)
+                    {
                         config.crossover_type = crossover_type;
                         config.crossover_prob = crossover_prob;
                         config.mutation_type = "polynomial"; // Using polynomial mutation for density-based mutation
@@ -650,8 +894,10 @@ int main() {
     // We'll use the same systematic approach for Deb function
     // as required by the task
 
-    for (unsigned pop_size : population_sizes) {
-        for (const unsigned dim : dimensions) {
+    for (unsigned pop_size : population_sizes)
+    {
+        for (const unsigned dim : dimensions)
+        {
             // Basic config
             ga_config config;
             config.problem_name = "Deb";
@@ -666,9 +912,12 @@ int main() {
             const auto& mutation_probs = mutation_probs_by_dim[dim];
 
             // Loop through all combinations
-            for (const auto &crossover_type : crossover_types) {
-                for (double crossover_prob : crossover_probs) {
-                    for (double mutation_prob : mutation_probs) {
+            for (const auto& crossover_type : crossover_types)
+            {
+                for (double crossover_prob : crossover_probs)
+                {
+                    for (double mutation_prob : mutation_probs)
+                    {
                         config.crossover_type = crossover_type;
                         config.crossover_prob = crossover_prob;
                         config.mutation_type = "polynomial"; // Using polynomial mutation for density-based mutation
@@ -686,114 +935,201 @@ int main() {
     // to ensure the program works correctly
     // Store the original number of configurations before potentially reducing for demo mode
     const size_t total_configs = configs.size();
-    
-    if (NUM_RUNS < 100) { // When running in demo mode
+
+    if constexpr (NUM_RUNS < 100)
+    {
+        // When running in demo mode
         std::vector<ga_config> demo_configs;
 
         // Select a small representative sample of configurations
-        for (unsigned i = 0; i < std::min(static_cast<size_t>(8), configs.size()); i += configs.size()/8) {
+        for (unsigned i = 0; i < std::min(static_cast<size_t>(8), configs.size()); i += configs.size() / 8)
+        {
             demo_configs.push_back(configs[i]);
         }
 
-        std::cout << "Demo mode: Running " << demo_configs.size() << " configurations instead of the full set of " 
-                 << total_configs << " configurations." << std::endl;
+        std::cout << "Demo mode: Running " << demo_configs.size() << " configurations instead of the full set of "
+            << total_configs << " configurations." << std::endl;
         configs = demo_configs;
-    } else {
-        std::cout << "Running all " << total_configs << " configurations with " << NUM_RUNS << " runs each." << std::endl;
     }
-    
+    else
+    {
+        std::cout << "Running all " << total_configs << " configurations with " << NUM_RUNS << " runs each." <<
+            std::endl;
+    }
+
     // Print configuration breakdown
     size_t ackley_configs = 0;
     size_t deb_configs = 0;
-    for (const auto& config : configs) {
-        if (config.problem_name == "Ackley") {
+    for (const auto& config : configs)
+    {
+        if (config.problem_name == "Ackley")
+        {
             ackley_configs++;
-        } else if (config.problem_name == "Deb") {
+        }
+        else if (config.problem_name == "Deb")
+        {
             deb_configs++;
         }
     }
-    std::cout << "Configuration breakdown: " << ackley_configs << " Ackley configurations, " 
-              << deb_configs << " Deb configurations" << std::endl;
+    std::cout << "Configuration breakdown: " << ackley_configs << " Ackley configurations, "
+        << deb_configs << " Deb configurations" << std::endl;
     std::cout << "Total expected runs: " << configs.size() * NUM_RUNS << std::endl;
 
     // Maximum number of concurrent configurations to run
     // Adjust this based on your hardware capabilities
     constexpr unsigned MAX_CONCURRENT_CONFIGS = 4;
 
-    // Thread-safe CSV writing using mutexes
-    std::mutex detailed_csv_mutex;
-    std::mutex summary_csv_mutex;
+    // Thread-safe queues for asynchronous I/O
+    ThreadSafeQueue<DetailedResultEntry> detailed_queue;
+    ThreadSafeQueue<SummaryResultEntry> summary_queue;
     std::mutex cout_mutex;
 
+    // Start background I/O threads
+    std::cout << "Starting I/O worker threads..." << std::endl;
+
+    // Thread for writing detailed results
+    std::thread detailed_writer([&]()
+    {
+        DetailedResultEntry entry;
+        while (!detailed_queue.is_done() || !detailed_queue.empty())
+        {
+            if (detailed_queue.try_pop(entry))
+            {
+                // Write to CSV without contention
+                detailed_csv << entry.config_id << ","
+                    << entry.run_id << ","
+                    << entry.stats.to_csv() << std::endl;
+            }
+            else
+            {
+                // Small sleep to prevent busy waiting
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+        }
+    });
+
+    // Thread for writing summary results
+    std::thread summary_writer([&]()
+    {
+        SummaryResultEntry entry;
+        while (!summary_queue.is_done() || !summary_queue.empty())
+        {
+            if (summary_queue.try_pop(entry))
+            {
+                // Write to CSV without contention
+                summary_csv << entry.config_id << ","
+                    << entry.config.to_csv(entry.config_id) << ","
+                    << entry.stats.to_csv() << std::endl;
+            }
+            else
+            {
+                // Small sleep to prevent busy waiting
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
+        }
+    });
+
     // Process configurations in batches
-    for (int start = 0; start < configs.size(); start += MAX_CONCURRENT_CONFIGS) {
+    for (int start = 0; start < configs.size(); start += MAX_CONCURRENT_CONFIGS)
+    {
         const int end = std::min(
             static_cast<int>(configs.size()),
             static_cast<int>(start + MAX_CONCURRENT_CONFIGS)
         );
 
-        // Create a vector of threads for this batch
+        {
+            std::lock_guard lock(cout_mutex);
+            std::cout << "Starting batch " << (start / MAX_CONCURRENT_CONFIGS) + 1
+                << " of " << (configs.size() + MAX_CONCURRENT_CONFIGS - 1) / MAX_CONCURRENT_CONFIGS
+                << " (" << end - start << " configs)" << std::endl;
+        }
+
+        // Create a vector of threads and futures for this batch
         std::vector<std::thread> threads;
+        std::vector<std::future<std::vector<run_stats>>> futures(end - start);
 
         // Launch a thread for each configuration in the batch
-        for (int i = start; i < end; ++i) {
-            threads.emplace_back([&, i, config_id = i + 1]() {
+        for (int i = start; i < end; ++i)
+        {
+            const int config_idx = i - start;
+            const int config_id = i + 1;
+
+            // Create promise/future pair to get results
+            std::promise<std::vector<run_stats>> promise;
+            futures[config_idx] = promise.get_future();
+
+            threads.emplace_back([&, i, config_id, config_idx, p = std::move(promise)]() mutable
+            {
+                try
                 {
-                    std::lock_guard<std::mutex> lock(cout_mutex);
-                    std::cout << "Starting config " << config_id << ": "
-                            << configs[i].problem_name << ", dim=" << configs[i].dimension
-                            << ", pop=" << configs[i].population_size
-                            << ", islands=" << configs[i].island_count << std::endl;
+                    // Run experiments with thread-local storage
+                    std::vector<run_stats> runs = run_experiment_batch(
+                        config_id, configs[i], detailed_queue, cout_mutex, NUM_RUNS);
+
+                    // Set promise with results
+                    p.set_value(std::move(runs));
                 }
-
-                std::vector<run_stats> runs;
-
-                for (unsigned run = 0; run < NUM_RUNS; ++run) {
-                    // Thread-safe console output
-                    {
-                        std::lock_guard<std::mutex> lock(cout_mutex);
-                        std::cout << "  Config " << config_id << " - Run " << run + 1 << "/" << NUM_RUNS << "..." << std::flush;
-                    }
-
-                    // Use a different seed for each run
-                    unsigned seed = config_id * 1000 + run;
-                    auto stats = run_experiment(configs[i], seed);
-
-                    // Thread-safe CSV writing
-                    {
-                        std::lock_guard lock(detailed_csv_mutex);
-                        detailed_csv << config_id << ","
-                                    << run + 1 << ","
-                                    << stats.to_csv() << std::endl;
-
-                        std::lock_guard cout_lock(cout_mutex);
-                        std::cout << (stats.is_successful ? " Success" : " Failure") << std::endl;
-                    }
-
-                    runs.push_back(stats);
-                }
-
-                // Calculate aggregate statistics
-
-                // Thread-safe CSV writing for summary
+                catch (...)
                 {
-                    auto agg_stats = calculate_aggregate_stats(runs);
-                    std::lock_guard lock(summary_csv_mutex);
-                    summary_csv << config_id << ","
-                               << configs[i].to_csv(config_id) << ","
-                               << agg_stats.to_csv() << std::endl;
-
-                    std::lock_guard cout_lock(cout_mutex);
-                    std::cout << "Completed config " << config_id << std::endl;
+                    // Handle any exceptions
+                    try
+                    {
+                        p.set_exception(std::current_exception());
+                    }
+                    catch (...)
+                    {
+                        // Promise already satisfied
+                    }
                 }
             });
         }
 
         // Wait for all threads in this batch to complete
-        for (auto& thread : threads) {
+        for (auto& thread : threads)
+        {
             thread.join();
         }
+
+        // Process results from futures
+        for (int i = 0; i < futures.size(); ++i)
+        {
+            try
+            {
+                // Get the results from the future
+                std::vector<run_stats> runs = futures[i].get();
+
+                // Calculate aggregate statistics
+                const int config_id = start + i + 1;
+                auto agg_stats = calculate_aggregate_stats(runs);
+
+                // Queue summary results for asynchronous writing
+                summary_queue.push(SummaryResultEntry{config_id, configs[start + i], agg_stats});
+
+                {
+                    std::lock_guard lock(cout_mutex);
+                    std::cout << "Processed results for config " << config_id << std::endl;
+                }
+            }
+            catch (const std::exception& e)
+            {
+                std::lock_guard lock(cout_mutex);
+                std::cerr << "Error processing config " << (start + i + 1) << ": " << e.what() << std::endl;
+            }
+        }
     }
+
+    // Signal I/O threads to finish
+    {
+        std::lock_guard lock(cout_mutex);
+        std::cout << "All configurations processed. Waiting for I/O to complete..." << std::endl;
+    }
+
+    detailed_queue.done();
+    summary_queue.done();
+
+    // Wait for I/O threads to complete
+    detailed_writer.join();
+    summary_writer.join();
 
     std::cout << "All configurations completed. Results saved to 'results' directory." << std::endl;
 
