@@ -6,6 +6,9 @@
 #include <iomanip>
 #include <algorithm>
 #include <chrono>
+#include <thread>
+#include <mutex>
+#include <atomic>
 
 #include <pagmo/algorithm.hpp>
 #include <pagmo/algorithms/sga.hpp>
@@ -28,7 +31,7 @@ struct deb_func {
             const double term2 = std::pow(std::sin(5.0 * M_PI * xi), 6.0);
             result += term1 * term2;
         }
-        
+
         // We're maximizing
         return {-result};
     }
@@ -518,12 +521,11 @@ aggregate_stats calculate_aggregate_stats(const std::vector<run_stats> &runs) {
 }
 
 // Function to run a set of experiments with a given configuration
-void run_config(int config_id, const ga_config &config, std::ofstream &detailed_csv, std::ofstream &summary_csv, unsigned num_runs) {
-    std::cout << "Running config " << config_id << ": " 
-              << config.problem_name << ", dim=" << config.dimension 
+void run_config(const int config_id, const ga_config &config, std::ofstream &detailed_csv, std::ofstream &summary_csv, const unsigned num_runs) {
+    std::cout << "Running config " << config_id << ": "
+              << config.problem_name << ", dim=" << config.dimension
               << ", pop=" << config.population_size
               << ", islands=" << config.island_count << std::endl;
-    
 
     std::vector<run_stats> runs;
 
@@ -693,9 +695,84 @@ int main() {
         configs = demo_configs;
         std::cout << "Demo mode: Running " << configs.size() << " configurations instead of the full set." << std::endl;
     }
-    // Run all configurations
-    for (int i = 0; i < configs.size(); ++i) {
-        run_config(i + 1, configs[i], detailed_csv, summary_csv, NUM_RUNS);
+
+    // Maximum number of concurrent configurations to run
+    // Adjust this based on your hardware capabilities
+    constexpr unsigned MAX_CONCURRENT_CONFIGS = 4;
+
+    // Thread-safe CSV writing using mutexes
+    std::mutex detailed_csv_mutex;
+    std::mutex summary_csv_mutex;
+    std::mutex cout_mutex;
+
+    // Process configurations in batches
+    for (int start = 0; start < configs.size(); start += MAX_CONCURRENT_CONFIGS) {
+        const int end = std::min(
+            static_cast<int>(configs.size()),
+            static_cast<int>(start + MAX_CONCURRENT_CONFIGS)
+        );
+
+        // Create a vector of threads for this batch
+        std::vector<std::thread> threads;
+
+        // Launch a thread for each configuration in the batch
+        for (int i = start; i < end; ++i) {
+            threads.emplace_back([&, i, config_id = i + 1]() {
+                {
+                    std::lock_guard<std::mutex> lock(cout_mutex);
+                    std::cout << "Starting config " << config_id << ": "
+                            << configs[i].problem_name << ", dim=" << configs[i].dimension
+                            << ", pop=" << configs[i].population_size
+                            << ", islands=" << configs[i].island_count << std::endl;
+                }
+
+                std::vector<run_stats> runs;
+
+                for (unsigned run = 0; run < NUM_RUNS; ++run) {
+                    // Thread-safe console output
+                    {
+                        std::lock_guard<std::mutex> lock(cout_mutex);
+                        std::cout << "  Config " << config_id << " - Run " << run + 1 << "/" << NUM_RUNS << "..." << std::flush;
+                    }
+
+                    // Use a different seed for each run
+                    unsigned seed = config_id * 1000 + run;
+                    auto stats = run_experiment(configs[i], seed);
+
+                    // Thread-safe CSV writing
+                    {
+                        std::lock_guard lock(detailed_csv_mutex);
+                        detailed_csv << config_id << ","
+                                    << run + 1 << ","
+                                    << stats.to_csv() << std::endl;
+
+                        std::lock_guard cout_lock(cout_mutex);
+                        std::cout << (stats.is_successful ? " Success" : " Failure") << std::endl;
+                    }
+
+                    runs.push_back(stats);
+                }
+
+                // Calculate aggregate statistics
+
+                // Thread-safe CSV writing for summary
+                {
+                    auto agg_stats = calculate_aggregate_stats(runs);
+                    std::lock_guard lock(summary_csv_mutex);
+                    summary_csv << config_id << ","
+                               << configs[i].to_csv(config_id) << ","
+                               << agg_stats.to_csv() << std::endl;
+
+                    std::lock_guard cout_lock(cout_mutex);
+                    std::cout << "Completed config " << config_id << std::endl;
+                }
+            });
+        }
+
+        // Wait for all threads in this batch to complete
+        for (auto& thread : threads) {
+            thread.join();
+        }
     }
 
     std::cout << "All configurations completed. Results saved to 'results' directory." << std::endl;
