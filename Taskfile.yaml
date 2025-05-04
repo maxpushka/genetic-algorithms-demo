@@ -6,9 +6,7 @@ tasks:
     - |-
       cmake -B {{.BUILD_DIR}} -G Ninja \
         -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm/bin/clang++ \
-        -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm/bin/clang \
-        -DPAGMO_WITH_EIGEN3=yes \
-        -DPAGMO_ENABLE_IPO=yes
+        -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm/bin/clang
 
   build:
     deps: [setup]
