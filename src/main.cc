@@ -1276,6 +1276,75 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
       throw std::runtime_error("Unknown problem type");
   }
 
+  // Map our selection methods to PaGMO's supported types (roulette, tournament, truncated)
+  std::string pagmo_selection;
+  int selection_param = 2; // Default tournament size
+  
+  // PaGMO only supports "roulette", "tournament", and "truncated" selection types
+  switch (config.selection_method) {
+    case SelectionMethod::RWS:
+    case SelectionMethod::ExpRankRWS_c0_9801:
+    case SelectionMethod::ExpRankRWS_c0_9606:
+    case SelectionMethod::LinRankRWS_b2:
+    case SelectionMethod::LinRankRWS_b1_6:
+      pagmo_selection = "roulette";
+      break;
+      
+    case SelectionMethod::Tournament:
+    case SelectionMethod::TournWITH_t2:
+    case SelectionMethod::TournWITHOUT_t2:
+    case SelectionMethod::TournWITHPART_t2:
+      pagmo_selection = "tournament";
+      selection_param = 2;
+      break;
+      
+    case SelectionMethod::TournWITH_t4:
+    case SelectionMethod::TournWITHOUT_t4:
+      pagmo_selection = "tournament";
+      selection_param = 4;
+      break;
+      
+    // All other selection methods, including SUS-based ones
+    default:
+      pagmo_selection = "tournament"; // Default to tournament
+      selection_param = 2;
+      break;
+  }
+  
+  // Map our crossover and mutation types to PaGMO's supported types
+  std::string pagmo_crossover;
+  std::string pagmo_mutation;
+  
+  // PaGMO supports "single", "sbx", "uniform" for crossover
+  switch (config.crossover_type) {
+    case CrossoverType::Single:
+      pagmo_crossover = "single";
+      break;
+    case CrossoverType::SBX:
+      pagmo_crossover = "sbx";
+      break;
+    case CrossoverType::Uniform:
+      pagmo_crossover = "uniform";
+      break;
+    default:
+      pagmo_crossover = "single"; // Default
+      break;
+  }
+  
+  // PaGMO supports "polynomial", "gaussian" for mutation
+  // Map our "Density" to "polynomial" for compatibility
+  switch (config.mutation_type) {
+    case MutationType::Polynomial:
+      pagmo_mutation = "polynomial";
+      break;
+    case MutationType::Density:
+      pagmo_mutation = "polynomial"; // Use polynomial as a substitute for density-based
+      break;
+    default:
+      pagmo_mutation = "polynomial"; // Default
+      break;
+  }
+  
   // Set up algorithm
   pagmo::algorithm algo{pagmo::sga(
       config.generations_per_evolution,  // Generations per evolution
@@ -1283,11 +1352,11 @@ run_stats run_experiment(const ga_config& config, unsigned seed) {
       1.0,                               // eta_c (distribution index for SBX)
       config.mutation_prob,              // Mutation probability
       1.0,                               // param_m (mutation parameter)
-      2,  // param_s (selection parameter - tournament size)
-      to_string(config.crossover_type),    // Convert enum to string for PaGMO
-      to_string(config.mutation_type),     // Convert enum to string for PaGMO
-      to_string(config.selection_method),  // Convert enum to string for PaGMO
-      seed                                 // Random seed
+      selection_param,                   // param_s (selection parameter - tournament size)
+      pagmo_crossover,                   // Use PaGMO-compatible crossover type
+      pagmo_mutation,                    // Use PaGMO-compatible mutation type
+      pagmo_selection,                   // Use PaGMO-compatible selection type
+      seed                               // Random seed
       )};
 
   // Set up archipelago
