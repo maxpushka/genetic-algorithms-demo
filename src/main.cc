@@ -684,6 +684,9 @@ int main() {
 
     // For demonstration purposes, only run a small subset of configurations
     // to ensure the program works correctly
+    // Store the original number of configurations before potentially reducing for demo mode
+    const size_t total_configs = configs.size();
+    
     if (NUM_RUNS < 100) { // When running in demo mode
         std::vector<ga_config> demo_configs;
 
@@ -692,9 +695,26 @@ int main() {
             demo_configs.push_back(configs[i]);
         }
 
+        std::cout << "Demo mode: Running " << demo_configs.size() << " configurations instead of the full set of " 
+                 << total_configs << " configurations." << std::endl;
         configs = demo_configs;
-        std::cout << "Demo mode: Running " << configs.size() << " configurations instead of the full set." << std::endl;
+    } else {
+        std::cout << "Running all " << total_configs << " configurations with " << NUM_RUNS << " runs each." << std::endl;
     }
+    
+    // Print configuration breakdown
+    size_t ackley_configs = 0;
+    size_t deb_configs = 0;
+    for (const auto& config : configs) {
+        if (config.problem_name == "Ackley") {
+            ackley_configs++;
+        } else if (config.problem_name == "Deb") {
+            deb_configs++;
+        }
+    }
+    std::cout << "Configuration breakdown: " << ackley_configs << " Ackley configurations, " 
+              << deb_configs << " Deb configurations" << std::endl;
+    std::cout << "Total expected runs: " << configs.size() * NUM_RUNS << std::endl;
 
     // Maximum number of concurrent configurations to run
     // Adjust this based on your hardware capabilities
