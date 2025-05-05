@@ -46,7 +46,7 @@ std::vector<ga_config> create_configurations() {
   constexpr std::array encoding_methods = {
       EncodingMethod::StandardBinary,
       EncodingMethod::GrayCode,
-      // EncodingMethod::Discretization // TODO: uncomment
+      EncodingMethod::Discretization
   };
 
   // Crossover types (as per TASK.md)
@@ -56,7 +56,7 @@ std::vector<ga_config> create_configurations() {
   };
 
   // Crossover probabilities (as per TASK.md)
-  constexpr std::array crossover_probs = {/*0.0,*/ 0.6, 0.8, 1.0}; // TODO: uncomment
+  constexpr std::array crossover_probs = {0.0, 0.6, 0.8, 1.0};
 
   // Mutation probabilities (as per TASK.md, for different dimensions)
   std::map<unsigned, std::array<double, 3>> mutation_probs_by_dim = {
@@ -68,7 +68,7 @@ std::vector<ga_config> create_configurations() {
 
   // Mutation types
   constexpr std::array mutation_types = {
-      // MutationType::Polynomial,  // Using polynomial mutation for density-based mutation // TODO: uncomment
+      MutationType::Polynomial,  // Using polynomial mutation for density-based mutation
       MutationType::Density      // Explicit density-based mutation
   };
 
@@ -121,7 +121,7 @@ std::vector<ga_config> create_configurations() {
   };
 
   constexpr unsigned island_count = 16;
-  constexpr unsigned generations_per_evolution = 720; // TODO: replace 1_000_000
+  constexpr unsigned generations_per_evolution = 1000000;
   constexpr unsigned total_evolutions = 10;
 
   // Loop through all combinations of parameters for all problems
@@ -287,7 +287,7 @@ int main() {
   LOG_WARN("Total expected runs: {}", configs.size() * NUM_RUNS);
 
   // Maximum number of concurrent configurations to run
-  constexpr unsigned MAX_CONCURRENT_CONFIGS = 4;
+  constexpr unsigned MAX_CONCURRENT_CONFIGS = 8;
 
   // Thread-safe queues for asynchronous I/O
   ThreadSafeQueue<DetailedResultEntry> detailed_queue;
